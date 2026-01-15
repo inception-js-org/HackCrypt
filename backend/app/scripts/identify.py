@@ -18,6 +18,8 @@ frame_count = 0
 last_label = "Scanning..."
 last_color = (255, 255, 255)
 last_query_time = 0
+prev_frame_time = 0
+fps=0
 
 print("\n[INFO] Starting face identification (press Q to quit)")
 print("[INFO] No Student ID required\n")
@@ -32,8 +34,13 @@ with mp_face.FaceDetection(
         if not ret:
             break
 
+        #fps calcylation start
+        current_time = time.time()
+        fps=1/(current_time - prev_frame_time) if prev_frame_time>0 else 0
+        prev_frame_time = current_time
+
         # Resize for speed (VERY IMPORTANT)
-        frame = cv2.resize(frame, (640, 480))
+        frame = cv2.resize(frame, (720, 480))
 
         h, w, _ = frame.shape
         rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
@@ -94,7 +101,16 @@ with mp_face.FaceDetection(
             last_color,
             2
         )
-
+        # Display FPS
+        cv2.putText(
+            frame,
+            f"FPS: {fps:.1f}",
+            (30, 470),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.7,
+            (0, 255, 255),
+            2
+        )
         cv2.imshow("Face Identification", frame)
 
         if cv2.waitKey(1) & 0xFF == ord("q"):
