@@ -1,0 +1,15 @@
+# Core numeric stack
+numpy>=1.21,<2.0
+
+# Computer vision
+opencv-contrib-python>=4.8,<5.0
+
+# MediaPipe (solutions-based, stable)
+mediapipe==0.10.7
+
+# MediaPipe dependency (critical)
+protobuf>=3.20.0,<4.0.0
+
+# Required by mediapipe
+attrs>=19.1.0
+matplotlib>=3.5
