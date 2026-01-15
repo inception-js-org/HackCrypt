@@ -1,13 +1,11 @@
 from fastapi import FastAPI
-from app.api.test import router as test_router
+from app.api import enroll, identify
 
 app = FastAPI(
-    title="Unified Identity Verification Backend",
-    version="0.1.0"
+    title="Intelligent Attendance System",
+    description="Face-based identity and attendance APIs",
+    version="1.0"
 )
 
-app.include_router(test_router)
-
-@app.get("/")
-def health_check():
-    return {"status": "Backend running"}
+app.include_router(enroll.router, prefix="/enroll", tags=["Enrollment"])
+app.include_router(identify.router, prefix="/identify", tags=["Identification"])
