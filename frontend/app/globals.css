@@ -1,6 +1,6 @@
 @import "tailwindcss";
 
-/* Global resets & base styles */
+/* Global resets */
 html,
 body {
   margin: 0;
@@ -8,7 +8,52 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
-/* Optional utility variables (NOT theme colors) */
+/* =========================
+   THEME VARIABLES
+   ========================= */
+
+/* LIGHT MODE (default) */
 :root {
   --radius: 12px;
+
+  --bg: #ffffff;
+  --text: #0f172a;
+
+  --grid-color: #8080800a;
+  --grid-bg: #ffffff;
+
+  --glow: rgba(168, 85, 247, 0.25);
+}
+
+/* DARK MODE */
+.dark {
+  --bg: #020617;
+  --text: #e5e7eb;
+
+  /* darker but still subtle grid */
+  --grid-color: #ffffff08;
+  --grid-bg: #020617;
+
+  --glow: rgba(192, 132, 252, 0.35);
+}
+
+/* =========================
+   GLOBAL APPLICATION
+   ========================= */
+
+body {
+  background-color: var(--bg);
+  color: var(--text);
+}
+
+/* =========================
+   THEMED GRID BACKGROUND
+   ========================= */
+
+.themed-grid {
+  background-color: var(--grid-bg);
+  background-image:
+    linear-gradient(to right, var(--grid-color) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--grid-color) 1px, transparent 1px);
+  background-size: 14px 24px;
 }
