@@ -352,36 +352,7 @@ export default function TeacherTimetablePage() {
     }
   }
 
-  // Listen for fingerprint events (WebSocket or polling)
-  useEffect(() => {
-    if (!activeSession) return
 
-    const checkFingerprint = async () => {
-      try {
-        // Poll fingerprint verification endpoint
-        const response = await fetch("http://localhost:8000/api/fingerprint/identify", {
-          method: "POST",
-        })
-        const data = await response.json()
-
-        if (data.success && data.fingerprintId) {
-          // Find student by fingerprintId
-          const student = classStudents.find(
-            (s) => s.fingerprintId === data.fingerprintId
-          )
-          
-          if (student && !fingerprintVerified.has(student.id)) {
-            await recordAttendance(activeSession.id, student.id, "fingerprint")
-          }
-        }
-      } catch (error) {
-        // Fingerprint reader might not be connected
-      }
-    }
-
-    const fpInterval = setInterval(checkFingerprint, 3000)
-    return () => clearInterval(fpInterval)
-  }, [activeSession, classStudents, fingerprintVerified])
 
   // Cleanup on unmount
   useEffect(() => {
