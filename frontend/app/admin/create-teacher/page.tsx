@@ -100,7 +100,10 @@ export default function CreateTeacherPage() {
                   </div>
                   <p className="text-black font-medium mb-2">Face Registration</p>
                   <p className="text-[#64748B] mb-4">Capture teacher face for recognition</p>
-                  <Button className="bg-[#3B82F6] hover:bg-[#2563EB] text-white">Capture Face</Button>
+                  <div className="flex gap-4 justify-center">
+                    <Button className="bg-[#3B82F6] hover:bg-[#2563EB] text-white">Capture Face</Button>
+                    <Button className="bg-[#3B82F6] hover:bg-[#2563EB] text-white">Upload Photo</Button>
+                  </div>
                 </div>
 
                 <div className="text-center py-8 bg-[#F8FAFC] rounded-lg">
