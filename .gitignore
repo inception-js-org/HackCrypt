@@ -6,7 +6,7 @@ Thumbs.db
 *.log
 .vscode/
 .idea/
-
+documentation/
 ############################
 # Python / Conda
 ############################
