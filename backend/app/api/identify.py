@@ -3,6 +3,8 @@ import numpy as np
 from fastapi import APIRouter, HTTPException, UploadFile, File
 from typing import List
 from concurrent.futures import ThreadPoolExecutor
+import threading
+import time
 
 from app.services.face_embedding import FaceEmbedder
 from app.core.pinecone_client import index
@@ -14,6 +16,9 @@ embedder = FaceEmbedder()
 
 # Thread pool for parallel Pinecone queries
 executor = ThreadPoolExecutor(max_workers=5)
+
+# Lock for webcam access to prevent concurrent access conflicts
+webcam_lock = threading.Lock()
 
 MATCH_THRESHOLD = 0.55
 
@@ -121,18 +126,37 @@ def identify_student_webcam():
     Supports multiple face detection.
     Uses InsightFace (ArcFace) for face detection and embedding.
     """
-    cap = cv2.VideoCapture(0)
+    # Use lock to prevent concurrent webcam access
+    lock_acquired = webcam_lock.acquire(timeout=5.0)
+    if not lock_acquired:
+        raise HTTPException(status_code=503, detail="Webcam is busy, please try again")
     
-    if not cap.isOpened():
-        raise HTTPException(status_code=500, detail="Could not open webcam")
-    
-    identities = []
-    
-    ret, frame = cap.read()
-    cap.release()
-    
-    if not ret:
-        raise HTTPException(status_code=500, detail="Could not capture frame from webcam")
+    cap = None
+    try:
+        cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)  # Use DirectShow backend on Windows
+        
+        if not cap.isOpened():
+            raise HTTPException(status_code=500, detail="Could not open webcam")
+        
+        # Give webcam time to initialize
+        time.sleep(0.1)
+        
+        identities = []
+        frame = None
+        
+        # Retry logic for grabbing frame
+        for attempt in range(3):
+            ret, frame = cap.read()
+            if ret and frame is not None:
+                break
+            time.sleep(0.1)
+        
+        if frame is None:
+            raise HTTPException(status_code=500, detail="Could not capture frame from webcam")
+    finally:
+        if cap is not None:
+            cap.release()
+        webcam_lock.release()
     
     # Resize for consistency
     frame = cv2.resize(frame, (720, 480))

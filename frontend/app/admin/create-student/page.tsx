@@ -197,101 +197,110 @@ export default function CreateStudentPage() {
     if (!studentDbId) {
       toast({
         title: "Error",
-        description: "Student ID not found. Please go back and save student information first.",
+        description:
+          "Student ID not found. Please go back and save student information first.",
         variant: "destructive",
-      })
-      return
+      });
+      return;
     }
 
-    console.log('🎥 Starting face capture for student:', studentDbId)
+    console.log("🎥 Starting face capture for student:", studentDbId);
 
-    setShowWebcam(true)
-    setIsProcessing(true)
-    
+    setShowWebcam(true);
+    setIsProcessing(true);
+
     try {
-      const faceId = studentDbId
-      
+      const faceId = studentDbId;
+
       // Poll for enrollment completion
-      let completed = false
-      let attempts = 0
-      const maxAttempts = 60 // 60 seconds max
-      
-      console.log('⏳ Waiting for enrollment to complete...')
-      
+      let completed = false;
+      let attempts = 0;
+      const maxAttempts = 60; // 60 seconds max
+
+      console.log("⏳ Waiting for enrollment to complete...");
+
       while (!completed && attempts < maxAttempts) {
-        await new Promise(resolve => setTimeout(resolve, 1000)) // Wait 1 second
-        
-        const statusResponse = await fetch(`http://localhost:8000/enroll/webcam/status?student_id=${faceId}`)
-        const status = await statusResponse.json()
-        
-        console.log(`Enrollment status (attempt ${attempts + 1}):`, status)
-        
+        await new Promise((resolve) => setTimeout(resolve, 1000)); // Wait 1 second
+
+        const statusResponse = await fetch(
+          `http://localhost:8000/enroll/webcam/status?student_id=${faceId}`
+        );
+        const status = await statusResponse.json();
+
+        console.log(`Enrollment status (attempt ${attempts + 1}):`, status);
+
         if (status.completed) {
-          completed = true
-          console.log('✅ Enrollment completed!')
-          break
+          completed = true;
+          console.log("✅ Enrollment completed!");
+          break;
         }
-        
-        attempts++
+
+        attempts++;
       }
-      
+
       if (!completed) {
-        throw new Error('Enrollment timeout. Please try again.')
+        throw new Error("Enrollment timeout. Please try again.");
       }
-      
+
       // Finalize enrollment
-      console.log('💾 Finalizing enrollment in Pinecone...')
-      const response = await fetch(`http://localhost:8000/enroll/webcam?student_id=${faceId}`, {
-        method: 'POST',
-      })
+      console.log("💾 Finalizing enrollment in Pinecone...");
+      const response = await fetch(
+        `http://localhost:8000/enroll/webcam?student_id=${faceId}`,
+        {
+          method: "POST",
+        }
+      );
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        console.error('❌ Face enrollment error:', errorData)
-        throw new Error(errorData.detail || 'Face enrollment failed')
+        const errorData = await response.json().catch(() => ({}));
+        console.error("❌ Face enrollment error:", errorData);
+        throw new Error(errorData.detail || "Face enrollment failed");
       }
 
-      const data = await response.json()
-      console.log('✅ Enrollment response:', data)
-      
+      const data = await response.json();
+      console.log("✅ Enrollment response:", data);
+
       // Update student record with face ID
-      console.log('📝 Updating database with face_id:', data.face_id)
-      const dbResponse = await fetch('/api/students/update-biometric', {
-        method: 'POST',
+      console.log("📝 Updating database with face_id:", data.face_id);
+      const dbResponse = await fetch("/api/students/update-biometric", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
           studentDbId,
           faceId: data.face_id,
         }),
-      })
+      });
 
-      const dbResult = await dbResponse.json()
-      console.log('✅ Database update result:', dbResult)
+      const dbResult = await dbResponse.json();
+      console.log("✅ Database update result:", dbResult);
 
       if (!dbResponse.ok) {
-        throw new Error(dbResult.error || 'Failed to update database')
+        throw new Error(dbResult.error || "Failed to update database");
       }
 
-      setFaceEnrolled(true)
-      
+      setFaceEnrolled(true);
+
       toast({
         title: "Success",
         description: `Face captured successfully! (${data.samples} samples collected)`,
-      })
+      });
     } catch (error) {
-      console.error('❌ Face capture error:', error)
+      console.error("❌ Face capture error:", error);
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to capture face. Please try again.",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Failed to capture face. Please try again.",
         variant: "destructive",
-      })
+      });
     } finally {
-      setIsProcessing(false)
-      setShowWebcam(false)
+      setIsProcessing(false);
+      setShowWebcam(false);
     }
-  }
+  };
 
   const handleUploadPhoto = async (
     event: React.ChangeEvent<HTMLInputElement>
@@ -380,111 +389,70 @@ export default function CreateStudentPage() {
     setFingerprintStatus("scanning")
     setFingerprintMessage("Connecting to sensor...")
     setFingerprintIcon("🔄")
-    setFingerprintStep(0)
     setIsProcessing(true)
 
     try {
-      const eventSource = new EventSource(`http://localhost:8000/api/fingerprint/enroll/stream/${fingerprintSlotId}`)
-      
-      let enrollmentSuccess = false
-      let finalFingerprintId: string | null = null
-      
-      eventSource.onmessage = async (event) => {
-        try {
-          const data = JSON.parse(event.data)
-          console.log("📡 SSE Event:", data)
-          
-          // Update SINGLE message (not appending)
-          setFingerprintMessage(data.message)
-          setFingerprintIcon(data.icon || "🔄")
-          if (data.step) setFingerprintStep(data.step)
-          
-          if (data.type === "success") {
-            enrollmentSuccess = true
-            finalFingerprintId = data.fingerprintId || String(fingerprintSlotId)
-            setFingerprintStatus("success")
-            setFingerprintIcon("🎉")
-            
-            eventSource.close()
-            
-            await fetch('/api/students/update-biometric', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                studentDbId,
-                fingerprintId: finalFingerprintId,
-              }),
-            })
+      const response = await fetch("http://localhost:8000/api/fingerprint/enroll", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ studentId: fingerprintSlotId }),
+      })
 
-            setFingerprintEnrolled(true)
-            setIsProcessing(false)
-            
-            toast({
-              title: "Success",
-              description: "Fingerprint enrolled successfully!",
-            })
-          } else if (data.type === "error") {
-            setFingerprintStatus("error")
-            setFingerprintIcon("❌")
-            eventSource.close()
-            setIsProcessing(false)
-            
-            toast({
-              title: "Error",
-              description: data.message || "Fingerprint enrollment failed.",
-              variant: "destructive",
-            })
-          }
-        } catch (e) {
-          console.error("Error parsing SSE event:", e)
-        }
+      const data = await response.json()
+      console.log("📡 Fingerprint response:", data)
+
+      if (data.success) {
+        setFingerprintStatus("success")
+        setFingerprintMessage(data.message || "Fingerprint enrolled successfully!")
+        setFingerprintIcon("🎉")
+
+        await fetch('/api/students/update-biometric', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            studentDbId,
+            fingerprintId: String(fingerprintSlotId),
+          }),
+        })
+
+        setFingerprintEnrolled(true)
+
+        toast({
+          title: "Success",
+          description: "Fingerprint enrolled successfully!",
+        })
+      } else {
+        setFingerprintStatus("error")
+        setFingerprintMessage(data.error || "Enrollment failed. Please try again.")
+        setFingerprintIcon("❌")
+
+        toast({
+          title: "Error",
+          description: data.error || "Fingerprint enrollment failed.",
+          variant: "destructive",
+        })
       }
-      
-      eventSource.onerror = (error) => {
-        console.error("SSE Error:", error)
-        eventSource.close()
-        
-        if (!enrollmentSuccess) {
-          setFingerprintStatus("error")
-          setFingerprintMessage("Connection lost. Please try again.")
-          setFingerprintIcon("❌")
-          setIsProcessing(false)
-          
-          toast({
-            title: "Error",
-            description: "Lost connection to fingerprint service.",
-            variant: "destructive",
-          })
-        }
-      }
-      
     } catch (error) {
       setFingerprintStatus("error")
       setFingerprintMessage("Failed to connect to fingerprint service.")
       setFingerprintIcon("❌")
-      setIsProcessing(false)
-      
+
       toast({
         title: "Error",
         description: "Failed to connect to fingerprint service.",
         variant: "destructive",
       });
+    } finally {
+      setIsProcessing(false)
     }
   };
 
-  const handleCreateStudent = async () => {
-    if (!faceEnrolled) {
-      toast({
-        title: "Warning",
-        description: "Please enroll face biometric before creating student.",
-        variant: "destructive",
-      });
-      return;
-    }
-
+  const handleComplete = async () => {
     setIsProcessing(true);
+
     try {
-      // Send invitation email via Clerk
       const response = await fetch("/api/students/send-invitation", {
         method: "POST",
         headers: {
@@ -518,6 +486,9 @@ export default function CreateStudentPage() {
       setStudentDbId("");
       setFaceEnrolled(false);
       setFingerprintEnrolled(false);
+      setFingerprintStatus("idle");
+      setFingerprintMessage("");
+      setFingerprintSlotId(0);
       setStep(1);
     } catch (error) {
       toast({
@@ -826,22 +797,26 @@ export default function CreateStudentPage() {
                   )}
                 </div>
 
-                {/* Action Buttons - existing code */}
+                {/* Action Buttons */}
                 <div className="flex justify-end gap-4">
                   <Button
-                    onClick={() => setStep(1)}
-                    className="bg-[#F9FAFB] text-black border border-[#E2E8F0] hover:bg-[#F1F5F9]"
-                  >
-                    Back
-                  </Button>
-                  <Button
-                    onClick={handleCreateStudent}
+                    onClick={handleComplete}
                     disabled={isProcessing}
-                    className="bg-[#3B82F6] hover:bg-[#2563EB] text-white"
+                    className="w-full bg-green-600 hover:bg-green-700 text-white"
                   >
-                    {isProcessing ? "Processing..." : "Create Student"}
+                    {isProcessing ? "Processing..." : "Complete Registration"}
                   </Button>
                 </div>
+
+                {/* Back Button */}
+                <Button
+                  onClick={() => setStep(1)}
+                  variant="outline"
+                  className="w-full"
+                  disabled={isProcessing}
+                >
+                  Back to Student Info
+                </Button>
               </div>
             )}
           </CardContent>
