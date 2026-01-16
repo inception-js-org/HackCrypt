@@ -1,28 +1,59 @@
 import cv2
-import torch
 import numpy as np
-from facenet_pytorch import InceptionResnetV1
+from insightface.app import FaceAnalysis
 
 class FaceEmbedder:
     def __init__(self):
-        self.device = "cuda" if torch.cuda.is_available() else "cpu"
-        self.model = InceptionResnetV1(
-            pretrained="vggface2"
-        ).eval().to(self.device)
+        # Initialize InsightFace with ArcFace model
+        self.app = FaceAnalysis(
+            name="buffalo_l",  # Best accuracy model
+            providers=["CUDAExecutionProvider", "CPUExecutionProvider"]
+        )
+        # det_size controls detection resolution (higher = better detection but slower)
+        self.app.prepare(ctx_id=0, det_size=(640, 640))
 
     def embed(self, face_img):
-        face = cv2.resize(face_img, (160, 160))
-        face = cv2.cvtColor(face, cv2.COLOR_BGR2RGB)
+        """
+        Generate face embedding using ArcFace.
+        
+        Args:
+            face_img: BGR image (numpy array) containing a face
+            
+        Returns:
+            Normalized 512-dimensional embedding vector
+        """
+        # InsightFace expects BGR format (which OpenCV provides)
+        faces = self.app.get(face_img)
+        
+        if len(faces) == 0:
+            raise ValueError("No face detected in the image")
+        
+        # Get embedding from the first (or largest) face
+        # InsightFace returns 512-dim embedding, already normalized
+        embedding = faces[0].embedding
+        
+        # Ensure normalization (InsightFace usually returns normalized vectors)
+        return embedding / np.linalg.norm(embedding)
 
-        tensor = (
-            torch.tensor(face)
-            .permute(2, 0, 1)
-            .unsqueeze(0)
-            .float()
-            / 255.0
-        ).to(self.device)
-
-        with torch.no_grad():
-            emb = self.model(tensor).cpu().numpy()[0]
-
-        return emb / np.linalg.norm(emb)
+    def embed_aligned(self, face_img):
+        """
+        Alternative method for pre-cropped face images.
+        Uses direct embedding extraction without detection.
+        
+        Args:
+            face_img: BGR image of cropped face
+            
+        Returns:
+            Normalized 512-dimensional embedding vector
+        """
+        # Resize to expected input size
+        face = cv2.resize(face_img, (112, 112))
+        
+        # Get the recognition model directly
+        if not hasattr(self, '_rec_model'):
+            self._rec_model = self.app.models.get('recognition')
+        
+        # Get embedding
+        embedding = self._rec_model.get_feat(face).flatten()
+        
+        return embedding / np.linalg.norm(embedding)
