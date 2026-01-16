@@ -25,12 +25,34 @@ export default function LandingPage() {
         </div>
 
         <div className="relative z-10 mt-16">
-          {/* Image with slight transparency for bluish tint */}
-          <img
-            src="/images/chatgpt-20image-20jan-2015-2c-202026-2c-2009-53-00-20pm-photoroom.png"
-            alt="Face recognition technology demonstration"
-            className="w-auto h-[65vh] md:h-[75vh] lg:h-[95vh] object-contain opacity-87 mix-blend-luminosity"
-          />
+          {/* 3D rotating panel carousel */}
+          <div className="flex items-center justify-center">
+            <div className="carousel w-[320px] h-[360px] md:w-[520px] md:h-[620px]">
+              <div className="carousel-scene relative w-full h-full animate-spinSlow">
+                <div className="carousel-panel [transform:rotateY(0deg)_translateZ(200px)]">
+                  <img
+                    src="/images/anish.png"
+                    alt="panel-1"
+                    className="w-full h-full object-cover rounded-lg shadow-lg"
+                  />
+                </div>
+                <div className="carousel-panel [transform:rotateY(120deg)_translateZ(200px)]">
+                  <img
+                    src="/images/sachi.png"
+                    alt="panel-2"
+                    className="w-full h-full object-cover rounded-lg shadow-lg"
+                  />
+                </div>
+                <div className="carousel-panel [transform:rotateY(240deg)_translateZ(200px)]">
+                  <img
+                    src="/images/durva.png"
+                    alt="panel-3"
+                    className="w-full h-full object-cover rounded-lg shadow-lg"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
 
           <div className="absolute bottom-12 md:bottom-29 left-1/2 -translate-x-1/2 w-full text-center z-20">
             {isLoggedIn ? (
@@ -105,9 +127,9 @@ export default function LandingPage() {
                 <div className="w-8 h-8 bg-[#3B82F6] rounded-lg flex items-center justify-center">
                   <span className="text-white font-bold">A</span>
                 </div>
-                <span className="font-bold text-lg">AttendAI</span>
+                <span className="font-bold text-lg">ATTENDIX</span>
               </div>
-              <p className="text-white/60">© 2026 AttendAI. All rights reserved.</p>
+              <p className="text-white/60">© 2026 ATTENDIX. All rights reserved.</p>
             </div>
           </footer>
         </>

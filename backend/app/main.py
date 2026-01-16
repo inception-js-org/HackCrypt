@@ -5,6 +5,8 @@ import cv2
 import time
 from app.services.face_embedding import FaceEmbedder
 from app.core.pinecone_client import index
+from app.api import enroll, identify
+from app.api import enroll, identify, fingerprint
 
 app = FastAPI()
 
@@ -20,6 +22,9 @@ app.add_middleware(
 # Track enrollment sessions
 enrollment_sessions = {}
 embedder = FaceEmbedder()
+app.include_router(enroll.router, prefix="/enroll", tags=["Enrollment"])
+app.include_router(identify.router, prefix="/identify", tags=["Identification"])
+app.include_router(fingerprint.router, prefix="/api/fingerprint", tags=["Fingerprint"])
 
 @app.post("/enroll/webcam/start")
 async def start_webcam_enrollment(student_id: str = Query(...)):
@@ -35,7 +40,24 @@ async def start_webcam_enrollment(student_id: str = Query(...)):
     
     return {
         "message": "Enrollment session started",
-        "student_id": student_id
+        "student_id": student_id,
+        "version": "2.0",
+        "model": "ArcFace (InsightFace buffalo_l)",
+        "embedding_dimension": 512,
+        "endpoints": {
+            "enroll": {
+                "POST /enroll/": "Enroll with image upload",
+                "POST /enroll/webcam": "Enroll with webcam"
+            },
+            "identify": {
+                "POST /identify/": "Identify with image upload",
+                "POST /identify/webcam": "Identify with webcam"
+            },
+            "fingerprint": {
+                "POST /api/fingerprint/enroll": "Enroll fingerprint via Arduino",
+                "GET /api/fingerprint/ports": "List available serial ports"
+            }
+        }
     }
 
 def generate_enrollment_frames(student_id: str):

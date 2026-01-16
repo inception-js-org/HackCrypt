@@ -9,7 +9,7 @@ import "./globals.css"
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "Attendix",
+  title: "ATTENDIX - Smart Attendance System",
   description: "Advanced attendance management with face recognition, fingerprint detection, and AI analytics",
   generator: "v0.app",
   icons: {

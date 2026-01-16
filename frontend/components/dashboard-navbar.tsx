@@ -53,7 +53,7 @@ export function DashboardNavbar({ role, navItems, userName = "User" }: Dashboard
           <div className="w-10 h-10 bg-[#3B82F6] rounded-lg flex items-center justify-center">
             <span className="text-white font-bold text-xl">A</span>
           </div>
-          <span className="text-black font-bold text-xl hidden sm:block">AttendAI</span>
+          <span className="text-black font-bold text-xl hidden sm:block">ATTENDIX</span>
         </Link>
 
         {/* Navigation Items */}
