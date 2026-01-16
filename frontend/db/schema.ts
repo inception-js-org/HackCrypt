@@ -82,14 +82,21 @@ export const students = pgTable("students", {
 
 // /* ---------- FACULTY ---------- */
 
-// export const faculty = pgTable("faculty", {
-//   id: uuid("id").defaultRandom().primaryKey(),
-//   userId: uuid("user_id")
-//     .references(() => users.id)
-//     .notNull(),
-//   department: text("department"),
-//   designation: text("designation"),
-// });
+export const faculty = pgTable("faculty", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  clerkUserId: text("clerk_user_id").unique(), // Set after faculty signs up
+  firstName: text("first_name").notNull(),
+  lastName: text("last_name").notNull(),
+  email: text("email").notNull().unique(),
+  phone: text("phone").notNull(),
+  department: text("department").notNull(), // Mathematics, Physics, Chemistry, etc.
+  designation: text("designation"), // Professor, Assistant Professor, Lecturer, etc.
+  employeeId: text("employee_id").unique(), // TCH-2026-001 format
+  assignedClasses: jsonb("assigned_classes"), // Array of class IDs: ["12-A", "11-B"]
+  invitationSent: boolean("invitation_sent").default(false),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().$onUpdate(() => new Date()),
+});
 
 // /* ---------- CLASSROOMS / COURSES ---------- */
 
