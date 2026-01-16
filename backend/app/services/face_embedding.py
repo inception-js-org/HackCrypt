@@ -1,16 +1,25 @@
 import cv2
 import numpy as np
+import os
 from insightface.app import FaceAnalysis
 
 class FaceEmbedder:
     def __init__(self):
         # Initialize InsightFace with ArcFace model
-        self.app = FaceAnalysis(
-            name="buffalo_l",  # Best accuracy model
-            providers=["CUDAExecutionProvider", "CPUExecutionProvider"]
-        )
+        print("Initializing FaceAnalysis with buffalo_l model...")
+        
+        # Ensure model directory exists
+        model_dir = os.path.expanduser("~/.insightface")
+        os.makedirs(model_dir, exist_ok=True)
+        
+        # Initialize without specifying root to use default behavior
+        self.app = FaceAnalysis(name="buffalo_l")
+        
+        print("Preparing model (this may download models on first run)...")
         # det_size controls detection resolution (higher = better detection but slower)
-        self.app.prepare(ctx_id=0, det_size=(640, 640))
+        # ctx_id=0 uses GPU if available, -1 for CPU only
+        self.app.prepare(ctx_id=-1, det_size=(640, 640))
+        print("FaceEmbedder initialized successfully!")
 
     def embed(self, face_img):
         """

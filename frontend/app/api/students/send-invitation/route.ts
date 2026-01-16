@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { db } from '@/db'
+import db from '@/db'
 import { students } from '@/db/schema'
 import { eq } from 'drizzle-orm'
 import { Resend } from 'resend'

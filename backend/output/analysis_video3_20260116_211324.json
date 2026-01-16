@@ -1,0 +1,747 @@
+{
+  "analysis_info": {
+    "video_file": "video3.mp4",
+    "video_path": "D:\\Projects\\HackCrypt\\public\\video3.mp4",
+    "analysis_date": "2026-01-16T21:13:24.301339",
+    "processing_time_seconds": 23.05,
+    "processing_time_formatted": "00:00:23.046"
+  },
+  "video_info": {
+    "width": 1080,
+    "height": 1920,
+    "fps": 30.0010404985144,
+    "total_frames": 173,
+    "duration_seconds": 5.766466666666667
+  },
+  "processing_config": {
+    "frame_skip": 5,
+    "match_threshold": 0.55,
+    "min_face_confidence": 0.6,
+    "frames_processed": 34
+  },
+  "summary": {
+    "total_detections": 34,
+    "unique_people_identified": 3,
+    "unknown_faces": 6,
+    "people_list": [
+      "riya",
+      "sachi",
+      "33"
+    ]
+  },
+  "people": {
+    "riya": {
+      "total_appearances": 14,
+      "first_seen": "00:00:02.333",
+      "last_seen": "00:00:04.500",
+      "first_seen_seconds": 2.333,
+      "last_seen_seconds": 4.5,
+      "duration_in_video": 2.167,
+      "average_confidence": 0.685,
+      "appearances": [
+        {
+          "timestamp": "00:00:02.333",
+          "timestamp_seconds": 2.333,
+          "frame": 70,
+          "confidence": 0.619
+        },
+        {
+          "timestamp": "00:00:02.500",
+          "timestamp_seconds": 2.5,
+          "frame": 75,
+          "confidence": 0.662
+        },
+        {
+          "timestamp": "00:00:02.667",
+          "timestamp_seconds": 2.667,
+          "frame": 80,
+          "confidence": 0.652
+        },
+        {
+          "timestamp": "00:00:02.833",
+          "timestamp_seconds": 2.833,
+          "frame": 85,
+          "confidence": 0.687
+        },
+        {
+          "timestamp": "00:00:03.000",
+          "timestamp_seconds": 3.0,
+          "frame": 90,
+          "confidence": 0.676
+        },
+        {
+          "timestamp": "00:00:03.167",
+          "timestamp_seconds": 3.167,
+          "frame": 95,
+          "confidence": 0.671
+        },
+        {
+          "timestamp": "00:00:03.333",
+          "timestamp_seconds": 3.333,
+          "frame": 100,
+          "confidence": 0.707
+        },
+        {
+          "timestamp": "00:00:03.500",
+          "timestamp_seconds": 3.5,
+          "frame": 105,
+          "confidence": 0.731
+        },
+        {
+          "timestamp": "00:00:03.667",
+          "timestamp_seconds": 3.667,
+          "frame": 110,
+          "confidence": 0.744
+        },
+        {
+          "timestamp": "00:00:03.833",
+          "timestamp_seconds": 3.833,
+          "frame": 115,
+          "confidence": 0.742
+        },
+        {
+          "timestamp": "00:00:04.000",
+          "timestamp_seconds": 4.0,
+          "frame": 120,
+          "confidence": 0.722
+        },
+        {
+          "timestamp": "00:00:04.167",
+          "timestamp_seconds": 4.167,
+          "frame": 125,
+          "confidence": 0.673
+        },
+        {
+          "timestamp": "00:00:04.333",
+          "timestamp_seconds": 4.333,
+          "frame": 130,
+          "confidence": 0.658
+        },
+        {
+          "timestamp": "00:00:04.500",
+          "timestamp_seconds": 4.5,
+          "frame": 135,
+          "confidence": 0.645
+        }
+      ]
+    },
+    "sachi": {
+      "total_appearances": 7,
+      "first_seen": "00:00:03.500",
+      "last_seen": "00:00:05.000",
+      "first_seen_seconds": 3.5,
+      "last_seen_seconds": 5.0,
+      "duration_in_video": 1.5,
+      "average_confidence": 0.602,
+      "appearances": [
+        {
+          "timestamp": "00:00:03.500",
+          "timestamp_seconds": 3.5,
+          "frame": 105,
+          "confidence": 0.554
+        },
+        {
+          "timestamp": "00:00:03.667",
+          "timestamp_seconds": 3.667,
+          "frame": 110,
+          "confidence": 0.586
+        },
+        {
+          "timestamp": "00:00:03.833",
+          "timestamp_seconds": 3.833,
+          "frame": 115,
+          "confidence": 0.606
+        },
+        {
+          "timestamp": "00:00:04.000",
+          "timestamp_seconds": 4.0,
+          "frame": 120,
+          "confidence": 0.616
+        },
+        {
+          "timestamp": "00:00:04.167",
+          "timestamp_seconds": 4.167,
+          "frame": 125,
+          "confidence": 0.624
+        },
+        {
+          "timestamp": "00:00:04.333",
+          "timestamp_seconds": 4.333,
+          "frame": 130,
+          "confidence": 0.624
+        },
+        {
+          "timestamp": "00:00:05.000",
+          "timestamp_seconds": 5.0,
+          "frame": 150,
+          "confidence": 0.602
+        }
+      ]
+    },
+    "33": {
+      "total_appearances": 7,
+      "first_seen": "00:00:03.500",
+      "last_seen": "00:00:04.500",
+      "first_seen_seconds": 3.5,
+      "last_seen_seconds": 4.5,
+      "duration_in_video": 1.0,
+      "average_confidence": 0.787,
+      "appearances": [
+        {
+          "timestamp": "00:00:03.500",
+          "timestamp_seconds": 3.5,
+          "frame": 105,
+          "confidence": 0.778
+        },
+        {
+          "timestamp": "00:00:03.667",
+          "timestamp_seconds": 3.667,
+          "frame": 110,
+          "confidence": 0.787
+        },
+        {
+          "timestamp": "00:00:03.833",
+          "timestamp_seconds": 3.833,
+          "frame": 115,
+          "confidence": 0.8
+        },
+        {
+          "timestamp": "00:00:04.000",
+          "timestamp_seconds": 4.0,
+          "frame": 120,
+          "confidence": 0.817
+        },
+        {
+          "timestamp": "00:00:04.167",
+          "timestamp_seconds": 4.167,
+          "frame": 125,
+          "confidence": 0.827
+        },
+        {
+          "timestamp": "00:00:04.333",
+          "timestamp_seconds": 4.333,
+          "frame": 130,
+          "confidence": 0.789
+        },
+        {
+          "timestamp": "00:00:04.500",
+          "timestamp_seconds": 4.5,
+          "frame": 135,
+          "confidence": 0.708
+        }
+      ]
+    }
+  },
+  "all_detections": [
+    {
+      "identity": "riya",
+      "match_score": 0.619,
+      "matched": true,
+      "bbox": {
+        "x1": 0,
+        "y1": 453,
+        "x2": 122,
+        "y2": 629
+      },
+      "detection_confidence": 0.8510000109672546,
+      "frame_number": 70,
+      "timestamp": "00:00:02.333",
+      "timestamp_seconds": 2.333
+    },
+    {
+      "identity": "riya",
+      "match_score": 0.662,
+      "matched": true,
+      "bbox": {
+        "x1": 69,
+        "y1": 446,
+        "x2": 209,
+        "y2": 630
+      },
+      "detection_confidence": 0.890999972820282,
+      "frame_number": 75,
+      "timestamp": "00:00:02.500",
+      "timestamp_seconds": 2.5
+    },
+    {
+      "identity": "riya",
+      "match_score": 0.652,
+      "matched": true,
+      "bbox": {
+        "x1": 139,
+        "y1": 409,
+        "x2": 281,
+        "y2": 602
+      },
+      "detection_confidence": 0.8989999890327454,
+      "frame_number": 80,
+      "timestamp": "00:00:02.667",
+      "timestamp_seconds": 2.667
+    },
+    {
+      "identity": "riya",
+      "match_score": 0.687,
+      "matched": true,
+      "bbox": {
+        "x1": 228,
+        "y1": 381,
+        "x2": 377,
+        "y2": 582
+      },
+      "detection_confidence": 0.8899999856948853,
+      "frame_number": 85,
+      "timestamp": "00:00:02.833",
+      "timestamp_seconds": 2.833
+    },
+    {
+      "identity": "riya",
+      "match_score": 0.676,
+      "matched": true,
+      "bbox": {
+        "x1": 333,
+        "y1": 400,
+        "x2": 489,
+        "y2": 607
+      },
+      "detection_confidence": 0.9039999842643738,
+      "frame_number": 90,
+      "timestamp": "00:00:03.000",
+      "timestamp_seconds": 3.0
+    },
+    {
+      "identity": "riya",
+      "match_score": 0.671,
+      "matched": true,
+      "bbox": {
+        "x1": 468,
+        "y1": 367,
+        "x2": 635,
+        "y2": 586
+      },
+      "detection_confidence": 0.8939999938011169,
+      "frame_number": 95,
+      "timestamp": "00:00:03.167",
+      "timestamp_seconds": 3.167
+    },
+    {
+      "identity": "riya",
+      "match_score": 0.707,
+      "matched": true,
+      "bbox": {
+        "x1": 591,
+        "y1": 315,
+        "x2": 771,
+        "y2": 555
+      },
+      "detection_confidence": 0.9110000133514404,
+      "frame_number": 100,
+      "timestamp": "00:00:03.333",
+      "timestamp_seconds": 3.333
+    },
+    {
+      "identity": "Unknown",
+      "match_score": 0.447,
+      "matched": false,
+      "bbox": {
+        "x1": 6,
+        "y1": 320,
+        "x2": 146,
+        "y2": 513
+      },
+      "detection_confidence": 0.7570000290870667,
+      "frame_number": 100,
+      "timestamp": "00:00:03.333",
+      "timestamp_seconds": 3.333
+    },
+    {
+      "identity": "riya",
+      "match_score": 0.731,
+      "matched": true,
+      "bbox": {
+        "x1": 690,
+        "y1": 302,
+        "x2": 879,
+        "y2": 557
+      },
+      "detection_confidence": 0.9169999957084656,
+      "frame_number": 105,
+      "timestamp": "00:00:03.500",
+      "timestamp_seconds": 3.5
+    },
+    {
+      "identity": "sachi",
+      "match_score": 0.554,
+      "matched": true,
+      "bbox": {
+        "x1": 85,
+        "y1": 279,
+        "x2": 229,
+        "y2": 496
+      },
+      "detection_confidence": 0.8640000224113464,
+      "frame_number": 105,
+      "timestamp": "00:00:03.500",
+      "timestamp_seconds": 3.5
+    },
+    {
+      "identity": "33",
+      "match_score": 0.778,
+      "matched": true,
+      "bbox": {
+        "x1": 0,
+        "y1": 148,
+        "x2": 134,
+        "y2": 419
+      },
+      "detection_confidence": 0.6990000009536743,
+      "frame_number": 105,
+      "timestamp": "00:00:03.500",
+      "timestamp_seconds": 3.5
+    },
+    {
+      "identity": "riya",
+      "match_score": 0.744,
+      "matched": true,
+      "bbox": {
+        "x1": 758,
+        "y1": 263,
+        "x2": 963,
+        "y2": 535
+      },
+      "detection_confidence": 0.890999972820282,
+      "frame_number": 110,
+      "timestamp": "00:00:03.667",
+      "timestamp_seconds": 3.667
+    },
+    {
+      "identity": "sachi",
+      "match_score": 0.586,
+      "matched": true,
+      "bbox": {
+        "x1": 151,
+        "y1": 229,
+        "x2": 321,
+        "y2": 466
+      },
+      "detection_confidence": 0.8799999952316284,
+      "frame_number": 110,
+      "timestamp": "00:00:03.667",
+      "timestamp_seconds": 3.667
+    },
+    {
+      "identity": "33",
+      "match_score": 0.787,
+      "matched": true,
+      "bbox": {
+        "x1": 0,
+        "y1": 109,
+        "x2": 155,
+        "y2": 409
+      },
+      "detection_confidence": 0.7110000252723694,
+      "frame_number": 110,
+      "timestamp": "00:00:03.667",
+      "timestamp_seconds": 3.667
+    },
+    {
+      "identity": "sachi",
+      "match_score": 0.606,
+      "matched": true,
+      "bbox": {
+        "x1": 228,
+        "y1": 199,
+        "x2": 410,
+        "y2": 455
+      },
+      "detection_confidence": 0.8989999890327454,
+      "frame_number": 115,
+      "timestamp": "00:00:03.833",
+      "timestamp_seconds": 3.833
+    },
+    {
+      "identity": "riya",
+      "match_score": 0.742,
+      "matched": true,
+      "bbox": {
+        "x1": 803,
+        "y1": 194,
+        "x2": 1027,
+        "y2": 496
+      },
+      "detection_confidence": 0.8209999799728394,
+      "frame_number": 115,
+      "timestamp": "00:00:03.833",
+      "timestamp_seconds": 3.833
+    },
+    {
+      "identity": "33",
+      "match_score": 0.8,
+      "matched": true,
+      "bbox": {
+        "x1": 0,
+        "y1": 76,
+        "x2": 172,
+        "y2": 401
+      },
+      "detection_confidence": 0.7509999871253967,
+      "frame_number": 115,
+      "timestamp": "00:00:03.833",
+      "timestamp_seconds": 3.833
+    },
+    {
+      "identity": "sachi",
+      "match_score": 0.616,
+      "matched": true,
+      "bbox": {
+        "x1": 334,
+        "y1": 203,
+        "x2": 521,
+        "y2": 465
+      },
+      "detection_confidence": 0.906000018119812,
+      "frame_number": 120,
+      "timestamp": "00:00:04.000",
+      "timestamp_seconds": 4.0
+    },
+    {
+      "identity": "riya",
+      "match_score": 0.722,
+      "matched": true,
+      "bbox": {
+        "x1": 796,
+        "y1": 135,
+        "x2": 1040,
+        "y2": 470
+      },
+      "detection_confidence": 0.8149999976158142,
+      "frame_number": 120,
+      "timestamp": "00:00:04.000",
+      "timestamp_seconds": 4.0
+    },
+    {
+      "identity": "33",
+      "match_score": 0.817,
+      "matched": true,
+      "bbox": {
+        "x1": 0,
+        "y1": 41,
+        "x2": 193,
+        "y2": 380
+      },
+      "detection_confidence": 0.7929999828338623,
+      "frame_number": 120,
+      "timestamp": "00:00:04.000",
+      "timestamp_seconds": 4.0
+    },
+    {
+      "identity": "sachi",
+      "match_score": 0.624,
+      "matched": true,
+      "bbox": {
+        "x1": 446,
+        "y1": 155,
+        "x2": 641,
+        "y2": 437
+      },
+      "detection_confidence": 0.9049999713897705,
+      "frame_number": 125,
+      "timestamp": "00:00:04.167",
+      "timestamp_seconds": 4.167
+    },
+    {
+      "identity": "33",
+      "match_score": 0.827,
+      "matched": true,
+      "bbox": {
+        "x1": 0,
+        "y1": 31,
+        "x2": 217,
+        "y2": 387
+      },
+      "detection_confidence": 0.8169999718666077,
+      "frame_number": 125,
+      "timestamp": "00:00:04.167",
+      "timestamp_seconds": 4.167
+    },
+    {
+      "identity": "riya",
+      "match_score": 0.673,
+      "matched": true,
+      "bbox": {
+        "x1": 754,
+        "y1": 118,
+        "x2": 1018,
+        "y2": 480
+      },
+      "detection_confidence": 0.796999990940094,
+      "frame_number": 125,
+      "timestamp": "00:00:04.167",
+      "timestamp_seconds": 4.167
+    },
+    {
+      "identity": "sachi",
+      "match_score": 0.624,
+      "matched": true,
+      "bbox": {
+        "x1": 507,
+        "y1": 88,
+        "x2": 716,
+        "y2": 396
+      },
+      "detection_confidence": 0.8510000109672546,
+      "frame_number": 130,
+      "timestamp": "00:00:04.333",
+      "timestamp_seconds": 4.333
+    },
+    {
+      "identity": "riya",
+      "match_score": 0.658,
+      "matched": true,
+      "bbox": {
+        "x1": 703,
+        "y1": 45,
+        "x2": 1003,
+        "y2": 431
+      },
+      "detection_confidence": 0.8500000238418579,
+      "frame_number": 130,
+      "timestamp": "00:00:04.333",
+      "timestamp_seconds": 4.333
+    },
+    {
+      "identity": "33",
+      "match_score": 0.789,
+      "matched": true,
+      "bbox": {
+        "x1": 0,
+        "y1": 4,
+        "x2": 248,
+        "y2": 352
+      },
+      "detection_confidence": 0.8040000200271606,
+      "frame_number": 130,
+      "timestamp": "00:00:04.333",
+      "timestamp_seconds": 4.333
+    },
+    {
+      "identity": "33",
+      "match_score": 0.708,
+      "matched": true,
+      "bbox": {
+        "x1": 0,
+        "y1": 0,
+        "x2": 244,
+        "y2": 290
+      },
+      "detection_confidence": 0.7540000081062317,
+      "frame_number": 135,
+      "timestamp": "00:00:04.500",
+      "timestamp_seconds": 4.5
+    },
+    {
+      "identity": "riya",
+      "match_score": 0.645,
+      "matched": true,
+      "bbox": {
+        "x1": 550,
+        "y1": 0,
+        "x2": 905,
+        "y2": 383
+      },
+      "detection_confidence": 0.7149999737739563,
+      "frame_number": 135,
+      "timestamp": "00:00:04.500",
+      "timestamp_seconds": 4.5
+    },
+    {
+      "identity": "Unknown",
+      "match_score": 0.534,
+      "matched": false,
+      "bbox": {
+        "x1": 331,
+        "y1": 0,
+        "x2": 681,
+        "y2": 382
+      },
+      "detection_confidence": 0.6840000152587891,
+      "frame_number": 140,
+      "timestamp": "00:00:04.667",
+      "timestamp_seconds": 4.667
+    },
+    {
+      "identity": "Unknown",
+      "match_score": 0.382,
+      "matched": false,
+      "bbox": {
+        "x1": 0,
+        "y1": 0,
+        "x2": 175,
+        "y2": 312
+      },
+      "detection_confidence": 0.6019999980926514,
+      "frame_number": 140,
+      "timestamp": "00:00:04.667",
+      "timestamp_seconds": 4.667
+    },
+    {
+      "identity": "Unknown",
+      "match_score": 0.377,
+      "matched": false,
+      "bbox": {
+        "x1": 485,
+        "y1": 0,
+        "x2": 737,
+        "y2": 361
+      },
+      "detection_confidence": 0.7770000100135803,
+      "frame_number": 145,
+      "timestamp": "00:00:04.833",
+      "timestamp_seconds": 4.833
+    },
+    {
+      "identity": "sachi",
+      "match_score": 0.602,
+      "matched": true,
+      "bbox": {
+        "x1": 438,
+        "y1": 0,
+        "x2": 715,
+        "y2": 292
+      },
+      "detection_confidence": 0.8500000238418579,
+      "frame_number": 150,
+      "timestamp": "00:00:05.000",
+      "timestamp_seconds": 5.0
+    },
+    {
+      "identity": "Unknown",
+      "match_score": 0.534,
+      "matched": false,
+      "bbox": {
+        "x1": 380,
+        "y1": 0,
+        "x2": 679,
+        "y2": 272
+      },
+      "detection_confidence": 0.7699999809265137,
+      "frame_number": 155,
+      "timestamp": "00:00:05.166",
+      "timestamp_seconds": 5.166
+    },
+    {
+      "identity": "Unknown",
+      "match_score": 0.497,
+      "matched": false,
+      "bbox": {
+        "x1": 322,
+        "y1": 0,
+        "x2": 637,
+        "y2": 279
+      },
+      "detection_confidence": 0.7319999933242798,
+      "frame_number": 160,
+      "timestamp": "00:00:05.333",
+      "timestamp_seconds": 5.333
+    }
+  ]
+}
