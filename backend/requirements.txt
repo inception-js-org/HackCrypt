@@ -13,12 +13,16 @@ protobuf>=3.20.0,<4.0.0
 # Required by mediapipe
 attrs>=19.1.0
 matplotlib>=3.5
+pinecone
+python-dotenv
+uvicorn
 
-# FastAPI and dependencies
-fastapi>=0.104.0
-uvicorn>=0.24.0
-pydantic>=2.0.0
-python-multipart>=0.0.6
-
-# Authentication
-PyJWT>=2.8.0
+tensorflow==2.15.0 
+protobuf==3.20.3 
+mediapipe==0.10.7
+tf-keras
+insightface 
+onnxruntime
+onnxruntime-gpu
+opencv-contrib-python
+python-multipart
