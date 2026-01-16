@@ -2,7 +2,7 @@
 
 import { useState, useRef } from "react";
 import { PageContainer } from "@/components/page-container";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,25 +14,38 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+import { User, Camera, Fingerprint, CheckCircle, Upload } from "lucide-react";
 
-const recentStudents = [
+const steps = [
   {
-    id: "STU-2026-001",
-    name: "Alex Student",
-    class: "12-A",
-    email: "alex@school.edu",
+    id: 1,
+    title: "Welcome! Let's Get to Know You",
+    subtitle: "Personal Information",
+    description:
+      "This will help us to make the registration seamless. This information will also help us to stay connected with you!",
+    icon: User,
   },
   {
-    id: "STU-2026-002",
-    name: "Jane Doe",
-    class: "11-B",
-    email: "jane@school.edu",
+    id: 2,
+    title: "Let's Capture Your Face",
+    subtitle: "Face Recognition Setup",
+    description:
+      "Position the student's face within the frame. This will be used for automated attendance recognition.",
+    icon: Camera,
   },
   {
-    id: "STU-2026-003",
-    name: "Mike Johnson",
-    class: "10-A",
-    email: "mike@school.edu",
+    id: 3,
+    title: "Fingerprint Registration",
+    subtitle: "Biometric Setup",
+    description: "Place the student's finger on the scanner. This adds an extra layer of verification for attendance.",
+    icon: Fingerprint,
+  },
+  {
+    id: 4,
+    title: "All Set! Registration Complete",
+    subtitle: "Review & Confirm",
+    description: "Review all the information before finalizing the student registration.",
+    icon: CheckCircle,
   },
 ];
 
@@ -53,7 +66,7 @@ interface FormErrors {
 }
 
 export default function CreateStudentPage() {
-  const [step, setStep] = useState(1);
+  const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState<FormData>({
     firstName: "",
     lastName: "",
@@ -70,44 +83,27 @@ export default function CreateStudentPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
-  const [fingerprintStatus, setFingerprintStatus] = useState<"idle" | "scanning" | "success" | "error">("idle")
-  const [fingerprintMessage, setFingerprintMessage] = useState("")
-  const [fingerprintIcon, setFingerprintIcon] = useState("")
-  const [fingerprintStep, setFingerprintStep] = useState(0)
-  const [fingerprintSlotId, setFingerprintSlotId] = useState(0)
+  const [fingerprintStatus, setFingerprintStatus] = useState<"idle" | "scanning" | "success" | "error">("idle");
+  const [fingerprintMessage, setFingerprintMessage] = useState("");
+  const [fingerprintSlotId, setFingerprintSlotId] = useState(0);
+  const [fingerprintStep, setFingerprintStep] = useState(0);
 
   // Map DB ID to fingerprint slot (1-127)
   const mapToSlot = (dbId: number) => {
-    return ((dbId - 1) % 127) + 1
-  }
+    return ((dbId - 1) % 127) + 1;
+  };
 
-  const handleFingerprintScan = async () => {
-    setFingerprintStatus("scanning")
-    setFingerprintMessage("Connecting to sensor...")
-
-    try {
-      const response = await fetch("http://localhost:8000/api/fingerprint/enroll", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ studentDbId }),
-      })
-
-      const data = await response.json()
-
-      if (data.success) {
-        setFingerprintStatus("success")
-        setFingerprintMessage(data.message || "Fingerprint enrolled successfully!")
-      } else {
-        setFingerprintStatus("error")
-        setFingerprintMessage(data.error || "Enrollment failed. Please try again.")
-      }
-    } catch (error) {
-      setFingerprintStatus("error")
-      setFingerprintMessage("Failed to connect to fingerprint service. Make sure the backend is running.")
+  const nextStep = () => {
+    if (currentStep < 4) {
+      setCurrentStep(currentStep + 1);
     }
-  }
+  };
+
+  const prevStep = () => {
+    if (currentStep > 1) {
+      setCurrentStep(currentStep - 1);
+    }
+  };
 
   const validateForm = (): boolean => {
     const newErrors: FormErrors = {};
@@ -172,12 +168,12 @@ export default function CreateStudentPage() {
           throw new Error("Failed to create student");
         }
 
-        const data = await response.json()
-        setStudentDbId(data.id)
-        const slotId = mapToSlot(Number(data.id))
-        setFingerprintSlotId(slotId)
-        setStep(2)
-        
+        const data = await response.json();
+        setStudentDbId(data.id);
+        const slotId = mapToSlot(Number(data.id));
+        setFingerprintSlotId(slotId);
+        nextStep();
+
         toast({
           title: "Success",
           description:
@@ -211,6 +207,15 @@ export default function CreateStudentPage() {
 
     try {
       const faceId = studentDbId;
+
+      // Start the webcam enrollment session
+      console.log("📡 Starting webcam enrollment session...");
+      await fetch(`http://localhost:8000/enroll/webcam/start?student_id=${faceId}`, {
+        method: "POST",
+      });
+
+      // Wait a moment for webcam to initialize
+      await new Promise((resolve) => setTimeout(resolve, 2000));
 
       // Poll for enrollment completion
       let completed = false;
@@ -387,11 +392,13 @@ export default function CreateStudentPage() {
     }
 
     setFingerprintStatus("scanning")
-    setFingerprintMessage("Connecting to sensor...")
-    setFingerprintIcon("🔄")
+    setFingerprintMessage("🔌 Connecting to sensor...")
+    setFingerprintStep(0)
     setIsProcessing(true)
 
     try {
+      // Start enrollment request
+      const startTime = Date.now()
       const response = await fetch("http://localhost:8000/api/fingerprint/enroll", {
         method: "POST",
         headers: {
@@ -403,10 +410,25 @@ export default function CreateStudentPage() {
       const data = await response.json()
       console.log("📡 Fingerprint response:", data)
 
+      // Parse Arduino messages to show progress
+      if (data.message) {
+        const message = data.message.toLowerCase()
+        if (message.includes("place finger") && !message.includes("again")) {
+          setFingerprintStep(1)
+          setFingerprintMessage("👉 Place your finger on the sensor")
+        } else if (message.includes("remove finger")) {
+          setFingerprintStep(2)
+          setFingerprintMessage("✋ Remove your finger")
+        } else if (message.includes("place same finger again") || message.includes("place finger again")) {
+          setFingerprintStep(3)
+          setFingerprintMessage("👉 Place the SAME finger again")
+        }
+      }
+
       if (data.success) {
         setFingerprintStatus("success")
-        setFingerprintMessage(data.message || "Fingerprint enrolled successfully!")
-        setFingerprintIcon("🎉")
+        setFingerprintStep(0)
+        setFingerprintMessage("🎉 Fingerprint enrolled successfully!")
 
         await fetch('/api/students/update-biometric', {
           method: 'POST',
@@ -425,8 +447,8 @@ export default function CreateStudentPage() {
         })
       } else {
         setFingerprintStatus("error")
-        setFingerprintMessage(data.error || "Enrollment failed. Please try again.")
-        setFingerprintIcon("❌")
+        setFingerprintStep(0)
+        setFingerprintMessage(data.error || data.message || "Enrollment failed. Please try again.")
 
         toast({
           title: "Error",
@@ -436,8 +458,8 @@ export default function CreateStudentPage() {
       }
     } catch (error) {
       setFingerprintStatus("error")
-      setFingerprintMessage("Failed to connect to fingerprint service.")
-      setFingerprintIcon("❌")
+      setFingerprintStep(0)
+      setFingerprintMessage("❌ Failed to connect to fingerprint service.")
 
       toast({
         title: "Error",
@@ -489,7 +511,7 @@ export default function CreateStudentPage() {
       setFingerprintStatus("idle");
       setFingerprintMessage("");
       setFingerprintSlotId(0);
-      setStep(1);
+      setCurrentStep(1);
     } catch (error) {
       toast({
         title: "Error",
@@ -501,198 +523,161 @@ export default function CreateStudentPage() {
     }
   };
 
+  const currentStepData = steps[currentStep - 1];
+  const progressPercent = ((currentStep - 1) / (steps.length - 1)) * 100;
+
   return (
-    <PageContainer
-      title="Create Student"
-      description="Add a new student to the system"
-    >
-      <div className="grid lg:grid-cols-2 gap-8">
-        <Card className="border-0 shadow-lg">
-          <CardHeader className="bg-[#3B82F6] text-white rounded-t-lg">
-            <CardTitle>New Student Registration</CardTitle>
-          </CardHeader>
-          <CardContent className="pt-6">
-            {step === 1 && (
-              <form className="space-y-6">
-                <div className="grid md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="firstName" className="text-black">
-                      First Name <span className="text-red-500">*</span>
-                    </Label>
-                    <Input
-                      id="firstName"
-                      placeholder="Enter first name"
-                      value={formData.firstName}
-                      onChange={(e) =>
-                        handleInputChange("firstName", e.target.value)
-                      }
-                      className={`border-[#E2E8F0] ${
-                        errors.firstName ? "border-red-500" : ""
-                      }`}
-                    />
-                    {errors.firstName && (
-                      <p className="text-red-500 text-sm mt-1">
-                        {errors.firstName}
-                      </p>
-                    )}
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="lastName" className="text-black">
-                      Last Name <span className="text-red-500">*</span>
-                    </Label>
-                    <Input
-                      id="lastName"
-                      placeholder="Enter last name"
-                      value={formData.lastName}
-                      onChange={(e) =>
-                        handleInputChange("lastName", e.target.value)
-                      }
-                      className={`border-[#E2E8F0] ${
-                        errors.lastName ? "border-red-500" : ""
-                      }`}
-                    />
-                    {errors.lastName && (
-                      <p className="text-red-500 text-sm mt-1">
-                        {errors.lastName}
-                      </p>
-                    )}
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="email" className="text-black">
-                    Email <span className="text-red-500">*</span>
-                  </Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="student@school.edu"
-                    value={formData.email}
-                    onChange={(e) => handleInputChange("email", e.target.value)}
-                    className={`border-[#E2E8F0] ${
-                      errors.email ? "border-red-500" : ""
-                    }`}
-                  />
-                  {errors.email && (
-                    <p className="text-red-500 text-sm mt-1">{errors.email}</p>
-                  )}
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="phone" className="text-black">
-                    Phone Number <span className="text-red-500">*</span>
-                  </Label>
-                  <Input
-                    id="phone"
-                    type="tel"
-                    placeholder="+1 234 567 8900"
-                    value={formData.phone}
-                    onChange={(e) => handleInputChange("phone", e.target.value)}
-                    className={`border-[#E2E8F0] ${
-                      errors.phone ? "border-red-500" : ""
-                    }`}
-                  />
-                  {errors.phone && (
-                    <p className="text-red-500 text-sm mt-1">{errors.phone}</p>
-                  )}
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-black">
-                    Class <span className="text-red-500">*</span>
-                  </Label>
-                  <Select
-                    value={formData.class}
-                    onValueChange={(value) => handleInputChange("class", value)}
-                  >
-                    <SelectTrigger
-                      className={`border-[#E2E8F0] ${
-                        errors.class ? "border-red-500" : ""
-                      }`}
-                    >
-                      <SelectValue placeholder="Select class" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="12-A">Class 12-A</SelectItem>
-                      <SelectItem value="12-B">Class 12-B</SelectItem>
-                      <SelectItem value="11-A">Class 11-A</SelectItem>
-                      <SelectItem value="11-B">Class 11-B</SelectItem>
-                      <SelectItem value="10-A">Class 10-A</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  {errors.class && (
-                    <p className="text-red-500 text-sm mt-1">{errors.class}</p>
-                  )}
-                </div>
-                <Button
-                  type="button"
-                  onClick={handleNext}
-                  className="w-full bg-[#3B82F6] hover:bg-[#2563EB] text-white"
-                >
-                  Next: Biometric Setup
-                </Button>
-              </form>
-            )}
+    <PageContainer title="" description="">
+      <div className="min-h-[calc(100vh-120px)] flex flex-col">
+        <div className="flex-1 flex flex-col lg:flex-row gap-8 lg:gap-16 px-4 lg:px-12 py-8">
+          <div className="lg:w-2/5 flex flex-col justify-center">
+            <p className="text-[#3B82F6] font-medium mb-2 tracking-wide">Step {currentStep}</p>
+            <h1 className="text-3xl lg:text-4xl font-bold text-black mb-4 leading-tight">{currentStepData.title}</h1>
+            <p className="text-[#64748B] text-lg leading-relaxed">{currentStepData.description}</p>
+          </div>
 
-            {step === 2 && (
-              <div className="space-y-6">
-                {/* Face Registration - existing code */}
-                <div className="text-center py-8 bg-[#F8FAFC] rounded-lg">
-                  <div
-                    className={`w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-4 ${
-                      faceEnrolled ? "bg-green-100" : "bg-[#EBF5FF]"
-                    }`}
-                  >
-                    <span className="text-4xl">
-                      {faceEnrolled ? "✅" : "📷"}
-                    </span>
-                  </div>
-                  <p className="text-black font-medium mb-2">
-                    Face Registration
-                  </p>
-                  <p className="text-[#64748B] mb-4">
-                    {faceEnrolled
-                      ? "Face enrolled successfully!"
-                      : "Capture student face for recognition"}
-                  </p>
+          <div className="lg:w-3/5 flex items-center justify-center">
+            <Card className="w-full max-w-3xl bg-white shadow-xl border-0 rounded-2xl overflow-hidden">
+              <div className="bg-[#3B82F6] px-6 py-4">
+                <h2 className="text-white font-semibold text-lg">
+                  {formData.firstName ? `Hi, ${formData.firstName} ${formData.lastName}` : currentStepData.subtitle}
+                </h2>
+              </div>
 
-                  {/* Webcam Preview */}
-                  {showWebcam && !faceEnrolled && studentDbId && (
-                    <div className="mb-4 mx-auto max-w-md">
-                      <div className="relative bg-gray-900 rounded-lg overflow-hidden aspect-video">
-                        <img
-                          src={`http://localhost:8000/video_feed?student_id=${studentDbId}`}
-                          alt="Webcam Feed"
-                          className="w-full h-full object-cover"
-                          onError={(e) => {
-                            console.error("Video feed error");
-                            (e.target as HTMLImageElement).src = "";
-                          }}
-                        />
-                        <div className="absolute top-4 right-4 bg-red-500 text-white px-3 py-1 rounded-full text-sm font-semibold flex items-center gap-2">
-                          <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
-                          RECORDING
-                        </div>
-                      </div>
-                      <p className="text-sm text-gray-600 mt-2">
-                        Please look at the camera. Capturing multiple angles...
-                      </p>
+              <div className="p-6">
+                {currentStep === 1 && (
+                  <div className="space-y-5 animate-in fade-in duration-300">
+                    <div className="space-y-2">
+                      <Label className="text-[#64748B] text-sm">
+                        First Name <span className="text-red-500">*</span>
+                      </Label>
+                      <Input
+                        placeholder="Enter first name"
+                        className={`border-[#E2E8F0] h-12 rounded-lg focus:border-[#3B82F6] focus:ring-[#3B82F6] ${
+                          errors.firstName ? "border-red-500" : ""
+                        }`}
+                        value={formData.firstName}
+                        onChange={(e) => handleInputChange("firstName", e.target.value)}
+                      />
+                      {errors.firstName && (
+                        <p className="text-red-500 text-sm mt-1">{errors.firstName}</p>
+                      )}
                     </div>
-                  )}
+                    <div className="space-y-2">
+                      <Label className="text-[#64748B] text-sm">
+                        Last Name <span className="text-red-500">*</span>
+                      </Label>
+                      <Input
+                        placeholder="Enter last name"
+                        className={`border-[#E2E8F0] h-12 rounded-lg focus:border-[#3B82F6] focus:ring-[#3B82F6] ${
+                          errors.lastName ? "border-red-500" : ""
+                        }`}
+                        value={formData.lastName}
+                        onChange={(e) => handleInputChange("lastName", e.target.value)}
+                      />
+                      {errors.lastName && (
+                        <p className="text-red-500 text-sm mt-1">{errors.lastName}</p>
+                      )}
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-[#64748B] text-sm">
+                        Email <span className="text-red-500">*</span>
+                      </Label>
+                      <Input
+                        type="email"
+                        placeholder="student@school.edu"
+                        className={`border-[#E2E8F0] h-12 rounded-lg focus:border-[#3B82F6] focus:ring-[#3B82F6] ${
+                          errors.email ? "border-red-500" : ""
+                        }`}
+                        value={formData.email}
+                        onChange={(e) => handleInputChange("email", e.target.value)}
+                      />
+                      {errors.email && (
+                        <p className="text-red-500 text-sm mt-1">{errors.email}</p>
+                      )}
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-[#64748B] text-sm">
+                        Phone Number <span className="text-red-500">*</span>
+                      </Label>
+                      <Input
+                        type="tel"
+                        placeholder="+1 234 567 8900"
+                        className={`border-[#E2E8F0] h-12 rounded-lg focus:border-[#3B82F6] focus:ring-[#3B82F6] ${
+                          errors.phone ? "border-red-500" : ""
+                        }`}
+                        value={formData.phone}
+                        onChange={(e) => handleInputChange("phone", e.target.value)}
+                      />
+                      {errors.phone && (
+                        <p className="text-red-500 text-sm mt-1">{errors.phone}</p>
+                      )}
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-[#64748B] text-sm">
+                        Class <span className="text-red-500">*</span>
+                      </Label>
+                      <Select
+                        value={formData.class}
+                        onValueChange={(value) => handleInputChange("class", value)}
+                      >
+                        <SelectTrigger className={`border-[#E2E8F0] h-12 rounded-lg ${
+                          errors.class ? "border-red-500" : ""
+                        }`}>
+                          <SelectValue placeholder="Select class" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="12-A">Class 12-A</SelectItem>
+                          <SelectItem value="12-B">Class 12-B</SelectItem>
+                          <SelectItem value="11-A">Class 11-A</SelectItem>
+                          <SelectItem value="11-B">Class 11-B</SelectItem>
+                          <SelectItem value="10-A">Class 10-A</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      {errors.class && (
+                        <p className="text-red-500 text-sm mt-1">{errors.class}</p>
+                      )}
+                    </div>
+                  </div>
+                )}
 
-                  {!faceEnrolled && (
-                    <div className="flex gap-4 justify-center">
-                      <Button
-                        onClick={handleCaptureFace}
-                        disabled={isProcessing}
-                        className="bg-[#3B82F6] hover:bg-[#2563EB] text-white"
-                      >
-                        {isProcessing ? "Capturing..." : "Capture Face"}
-                      </Button>
-                      <Button
-                        onClick={() => fileInputRef.current?.click()}
-                        disabled={isProcessing}
-                        className="bg-[#3B82F6] hover:bg-[#2563EB] text-white"
-                      >
-                        Upload Photo
-                      </Button>
+                {currentStep === 2 && (
+                  <div className="animate-in fade-in duration-300">
+                    <div className="flex flex-col items-center">
+                      <div className="relative w-64 h-64 bg-black rounded-xl overflow-hidden mb-4">
+                        {showWebcam && !faceEnrolled && studentDbId ? (
+                          <>
+                            <img
+                              src={`http://localhost:8000/video_feed?student_id=${studentDbId}`}
+                              alt="Webcam Feed"
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                console.error("Video feed error");
+                                (e.target as HTMLImageElement).style.display = "none";
+                              }}
+                            />
+                            <div className="absolute top-4 right-4 bg-red-500 text-white px-3 py-1 rounded-full text-sm font-semibold flex items-center gap-2">
+                              <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
+                              RECORDING
+                            </div>
+                            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                              <div className="w-40 h-52 border-2 border-dashed border-[#3B82F6] rounded-[50%] animate-pulse" />
+                            </div>
+                          </>
+                        ) : faceEnrolled ? (
+                          <div className="w-full h-full bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center">
+                            <div className="text-center text-white">
+                              <CheckCircle className="w-16 h-16 mx-auto mb-2" />
+                              <p className="font-medium">Face Captured!</p>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="w-full h-full bg-gradient-to-br from-[#1E293B] to-[#0F172A] flex items-center justify-center">
+                            <Camera className="w-12 h-12 text-white/40" />
+                          </div>
+                        )}
+                      </div>
+
                       <input
                         ref={fileInputRef}
                         type="file"
@@ -700,144 +685,301 @@ export default function CreateStudentPage() {
                         onChange={handleUploadPhoto}
                         className="hidden"
                       />
+
+                      {!showWebcam && !faceEnrolled && (
+                        <div className="flex flex-col gap-3 w-full max-w-xs">
+                          <Button
+                            onClick={handleCaptureFace}
+                            disabled={isProcessing}
+                            className="bg-[#3B82F6] hover:bg-[#2563EB] text-white w-full"
+                          >
+                            <Camera className="w-4 h-4 mr-2" />
+                            {isProcessing ? "Capturing..." : "Start Camera"}
+                          </Button>
+                          <div className="relative flex items-center justify-center">
+                            <div className="border-t border-[#E2E8F0] w-full" />
+                            <span className="absolute bg-white px-3 text-[#94A3B8] text-sm">or</span>
+                          </div>
+                          <Button
+                            onClick={() => fileInputRef.current?.click()}
+                            disabled={isProcessing}
+                            variant="outline"
+                            className="border-[#3B82F6] text-[#3B82F6] hover:bg-[#3B82F6]/10 w-full"
+                          >
+                            <Upload className="w-4 h-4 mr-2" />
+                            Upload Photo
+                          </Button>
+                        </div>
+                      )}
+
+                      {showWebcam && !faceEnrolled && (
+                        <p className="text-sm text-[#64748B] text-center max-w-xs">
+                          Please look at the camera. Capturing multiple angles...
+                        </p>
+                      )}
+
+                      {faceEnrolled && (
+                        <Button
+                          onClick={() => {
+                            setFaceEnrolled(false);
+                            setShowWebcam(false);
+                          }}
+                          variant="outline"
+                          className="border-[#3B82F6] text-[#3B82F6]"
+                        >
+                          Retake Photo
+                        </Button>
+                      )}
                     </div>
-                  )}
-                </div>
-
-                {/* Fingerprint Registration - UPDATED */}
-                <div className="text-center py-8 bg-[#F8FAFC] rounded-lg">
-                  {/* Icon Circle */}
-                  <div className={`w-28 h-28 rounded-full flex items-center justify-center mx-auto mb-6 transition-all duration-300 ${
-                    fingerprintEnrolled || fingerprintStatus === "success" 
-                      ? "bg-green-100" 
-                      : fingerprintStatus === "scanning" 
-                        ? "bg-blue-100 animate-pulse" 
-                        : fingerprintStatus === "error" 
-                          ? "bg-red-100" 
-                          : "bg-[#EBF5FF]"
-                  }`}>
-                    <span className="text-5xl">
-                      {fingerprintStatus === "idle" && "👆"}
-                      {fingerprintStatus === "scanning" && fingerprintIcon}
-                      {fingerprintStatus === "success" && "✅"}
-                      {fingerprintStatus === "error" && "❌"}
-                      {fingerprintEnrolled && "✅"}
-                    </span>
                   </div>
+                )}
 
-                  {/* Title */}
-                  <p className="text-black font-semibold text-lg mb-4">
-                    Fingerprint Registration (Slot ID: {fingerprintSlotId})
-                  </p>
+                {currentStep === 3 && (
+                  <div className="animate-in fade-in duration-300">
+                    <div className="flex flex-col items-center">
+                      <div
+                        className={`
+                        relative w-48 h-48 rounded-xl flex items-center justify-center mb-4 transition-all duration-500
+                        ${
+                          fingerprintEnrolled || fingerprintStatus === "success"
+                            ? "bg-gradient-to-br from-green-500 to-green-600"
+                            : "bg-gradient-to-br from-[#1E293B] to-[#0F172A]"
+                        }
+                      `}
+                      >
+                        {fingerprintEnrolled || fingerprintStatus === "success" ? (
+                          <div className="text-center text-white">
+                            <CheckCircle className="w-16 h-16 mx-auto mb-2" />
+                            <p className="font-medium">Registered!</p>
+                          </div>
+                        ) : (
+                          <div className="relative">
+                            <Fingerprint className="w-20 h-20 text-[#3B82F6]" />
+                            {fingerprintStatus === "scanning" && (
+                              <div className="absolute inset-0 bg-[#3B82F6]/30 rounded-full animate-ping" />
+                            )}
+                          </div>
+                        )}
 
-                  {/* Single Bold Message */}
-                  {fingerprintStatus !== "idle" && !fingerprintEnrolled && (
-                    <div className="mb-6">
-                      <p className={`text-2xl font-bold mb-2 ${
-                        fingerprintStatus === "success" ? "text-green-600" :
-                        fingerprintStatus === "error" ? "text-red-600" :
-                        "text-blue-600"
-                      }`}>
-                        {fingerprintMessage}
-                      </p>
-                      
-                      {/* Step Indicator */}
-                      {fingerprintStatus === "scanning" && fingerprintStep > 0 && (
-                        <div className="flex justify-center items-center gap-3 mt-4">
-                          {[1, 2, 3].map((s) => (
+                        {fingerprintStatus === "scanning" && (
+                          <div className="absolute inset-0 overflow-hidden rounded-xl">
                             <div
-                              key={s}
-                              className={`w-4 h-4 rounded-full transition-all duration-300 ${
-                                s <= fingerprintStep
-                                  ? 'bg-blue-500 scale-110'
+                              className="w-full h-0.5 bg-[#3B82F6] shadow-lg shadow-blue-400"
+                              style={{
+                                animation: "scan 2s ease-in-out infinite",
+                              }}
+                            />
+                          </div>
+                        )}
+                      </div>
+
+                      <p className="text-[#64748B] text-sm text-center mb-2 max-w-xs font-medium">
+                        Fingerprint Slot ID: {fingerprintSlotId}
+                      </p>
+
+                      {/* Step Progress Indicator */}
+                      {fingerprintStatus === "scanning" && fingerprintStep > 0 && (
+                        <div className="flex justify-center items-center gap-3 mb-4">
+                          {[1, 2, 3].map((step) => (
+                            <div
+                              key={step}
+                              className={`w-3 h-3 rounded-full transition-all duration-300 ${
+                                step <= fingerprintStep
+                                  ? 'bg-[#3B82F6] scale-110'
                                   : 'bg-gray-300'
                               }`}
                             />
                           ))}
-                          <span className="text-sm text-gray-500 ml-2">
-                            Step {fingerprintStep} of 3
-                          </span>
                         </div>
                       )}
-                    </div>
-                  )}
 
-                  {/* Success Message */}
-                  {fingerprintEnrolled && (
-                    <p className="text-2xl font-bold text-green-600 mb-4">
-                      Fingerprint Enrolled Successfully!
-                    </p>
-                  )}
+                      <p className={`text-center mb-4 max-w-md font-semibold text-lg ${
+                        fingerprintStatus === "success" ? "text-green-600" :
+                        fingerprintStatus === "error" ? "text-red-600" :
+                        fingerprintStatus === "scanning" ? "text-[#3B82F6]" :
+                        "text-[#64748B]"
+                      }`}>
+                        {fingerprintEnrolled || fingerprintStatus === "success"
+                          ? fingerprintMessage || "Fingerprint successfully registered."
+                          : fingerprintStatus === "scanning"
+                            ? fingerprintMessage || "Place finger on the scanner device."
+                            : fingerprintStatus === "error"
+                              ? fingerprintMessage
+                              : "Place finger on the scanner device."}
+                      </p>
 
-                  {/* Idle State */}
-                  {fingerprintStatus === "idle" && !fingerprintEnrolled && (
-                    <p className="text-[#64748B] mb-4">
-                      Scan student fingerprint (Optional)
-                    </p>
-                  )}
-
-                  {/* Scan Button */}
-                  {!fingerprintEnrolled && (
-                    <Button 
-                      onClick={handleScanFingerprint}
-                      disabled={isProcessing || fingerprintStatus === "scanning"}
-                      className="bg-[#3B82F6] hover:bg-[#2563EB] text-white px-8 py-2"
-                    >
-                      {fingerprintStatus === "scanning" ? (
-                        <span className="flex items-center gap-2">
-                          <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                          Scanning...
-                        </span>
-                      ) : fingerprintStatus === "error" ? (
-                        "Try Again"
+                      {!fingerprintEnrolled && fingerprintStatus !== "success" ? (
+                        <Button
+                          onClick={handleScanFingerprint}
+                          disabled={isProcessing || fingerprintStatus === "scanning"}
+                          className="bg-[#3B82F6] hover:bg-[#2563EB] text-white"
+                        >
+                          {fingerprintStatus === "scanning" ? (
+                            <span className="flex items-center gap-2">
+                              <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                              Scanning...
+                            </span>
+                          ) : fingerprintStatus === "error" ? (
+                            <>
+                              <Fingerprint className="w-4 h-4 mr-2" />
+                              Try Again
+                            </>
+                          ) : (
+                            <>
+                              <Fingerprint className="w-4 h-4 mr-2" />
+                              Scan Fingerprint
+                            </>
+                          )}
+                        </Button>
                       ) : (
-                        "Scan Fingerprint"
+                        <Button
+                          onClick={() => {
+                            setFingerprintEnrolled(false);
+                            setFingerprintStatus("idle");
+                            setFingerprintMessage("");
+                          }}
+                          variant="outline"
+                          className="border-[#3B82F6] text-[#3B82F6]"
+                        >
+                          Rescan
+                        </Button>
                       )}
+                    </div>
+                  </div>
+                )}
+
+                {currentStep === 4 && (
+                  <div className="animate-in fade-in duration-300 space-y-4">
+                    <div className="space-y-3">
+                      <div className="flex justify-between py-2 border-b border-[#E2E8F0]">
+                        <span className="text-[#64748B]">Name</span>
+                        <span className="font-medium text-black">
+                          {formData.firstName} {formData.lastName}
+                        </span>
+                      </div>
+                      <div className="flex justify-between py-2 border-b border-[#E2E8F0]">
+                        <span className="text-[#64748B]">Email</span>
+                        <span className="font-medium text-black">{formData.email}</span>
+                      </div>
+                      <div className="flex justify-between py-2 border-b border-[#E2E8F0]">
+                        <span className="text-[#64748B]">Phone</span>
+                        <span className="font-medium text-black">{formData.phone}</span>
+                      </div>
+                      <div className="flex justify-between py-2 border-b border-[#E2E8F0]">
+                        <span className="text-[#64748B]">Class</span>
+                        <span className="font-medium text-black">{formData.class}</span>
+                      </div>
+                      <div className="flex justify-between py-2">
+                        <span className="text-[#64748B]">Face</span>
+                        <span className={`font-medium ${faceEnrolled ? "text-green-600" : "text-orange-500"}`}>
+                          {faceEnrolled ? "✓ Captured" : "⚠ Pending"}
+                        </span>
+                      </div>
+                      <div className="flex justify-between py-2">
+                        <span className="text-[#64748B]">Fingerprint</span>
+                        <span className={`font-medium ${fingerprintEnrolled ? "text-green-600" : "text-orange-500"}`}>
+                          {fingerprintEnrolled ? "✓ Registered" : "⚠ Optional"}
+                        </span>
+                      </div>
+                    </div>
+
+                    <Button
+                      className="w-full bg-green-600 hover:bg-green-700 text-white h-12"
+                      onClick={handleComplete}
+                      disabled={isProcessing}
+                    >
+                      <CheckCircle className="w-4 h-4 mr-2" />
+                      {isProcessing ? "Processing..." : "Complete Registration"}
                     </Button>
-                  )}
-                </div>
-
-                {/* Action Buttons */}
-                <div className="flex justify-end gap-4">
-                  <Button
-                    onClick={handleComplete}
-                    disabled={isProcessing}
-                    className="w-full bg-green-600 hover:bg-green-700 text-white"
-                  >
-                    {isProcessing ? "Processing..." : "Complete Registration"}
-                  </Button>
-                </div>
-
-                {/* Back Button */}
-                <Button
-                  onClick={() => setStep(1)}
-                  variant="outline"
-                  className="w-full"
-                  disabled={isProcessing}
-                >
-                  Back to Student Info
-                </Button>
+                  </div>
+                )}
               </div>
-            )}
-          </CardContent>
-        </Card>
+            </Card>
+          </div>
+        </div>
 
-        <div className="hidden lg:block">
-          <h2 className="text-2xl font-bold mb-4">Recent Students</h2>
-          <div className="space-y-4">
-            {recentStudents.map((student) => (
+        <div className="bg-[#F8FAFC] border-t border-[#E2E8F0] py-6 px-4 lg:px-12">
+          <div className="relative mb-6">
+            <div className="h-2 bg-[#E2E8F0] rounded-full relative overflow-hidden">
               <div
-                key={student.id}
-                className="p-4 bg-[#F8FAFC] rounded-lg shadow"
-              >
-                <p className="text-[#374151] font-semibold">{student.name}</p>
-                <p className="text-[#6B7280]">{student.email}</p>
-                <p className="text-[#6B7280]">{student.class}</p>
+                className="h-full bg-gradient-to-r from-[#3B82F6] to-[#60A5FA] rounded-full transition-all duration-700 ease-out"
+                style={{ width: `${progressPercent}%` }}
+              />
+            </div>
+
+            <div
+              className="absolute top-1/2 -translate-y-1/2 transition-all duration-700 ease-out"
+              style={{ left: `calc(${progressPercent}% - 20px)` }}
+            >
+              <div className="w-10 h-10 bg-[#3B82F6] rounded-full flex items-center justify-center shadow-lg shadow-blue-300 animate-pulse">
+                <User className="w-5 h-5 text-white" />
               </div>
-            ))}
+            </div>
+
+            <div className="absolute inset-0 flex justify-between items-center">
+              {steps.map((step) => {
+                const isCompleted = currentStep > step.id;
+                const isCurrent = currentStep === step.id;
+                return (
+                  <div
+                    key={step.id}
+                    className={`
+                      w-4 h-4 rounded-full border-2 transition-all duration-300
+                      ${
+                        isCompleted
+                          ? "bg-[#3B82F6] border-[#3B82F6]"
+                          : isCurrent
+                            ? "bg-white border-[#3B82F6]"
+                            : "bg-white border-[#CBD5E1]"
+                      }
+                    `}
+                  />
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="flex justify-center gap-4">
+            <Button
+              onClick={prevStep}
+              disabled={currentStep === 1 || isProcessing}
+              className={`
+                px-8 py-3 rounded-full font-medium transition-all duration-300
+                ${
+                  currentStep === 1 || isProcessing
+                    ? "bg-[#CBD5E1] text-white cursor-not-allowed"
+                    : "bg-[#1E293B] hover:bg-black text-white"
+                }
+              `}
+            >
+              Previous
+            </Button>
+
+            {currentStep < 4 && (
+              <Button
+                onClick={() => {
+                  if (currentStep === 1) {
+                    handleNext();
+                  } else {
+                    nextStep();
+                  }
+                }}
+                disabled={isProcessing}
+                className="px-8 py-3 rounded-full bg-[#1E293B] hover:bg-black text-white font-medium"
+              >
+                {currentStep === 1 ? "Save & Next" : "Next"}
+              </Button>
+            )}
           </div>
         </div>
       </div>
+
+      <style jsx global>{`
+        @keyframes scan {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(192px); }
+        }
+      `}</style>
     </PageContainer>
   );
 }
