@@ -33,6 +33,7 @@ function LoginForm() {
         <span className="font-medium">Back</span>
       </Link>
       <div className="w-full max-w-md mt-20">
+        
         <Link href="/" className="flex items-center justify-center gap-2 mb-8">
           <div className="w-10 h-10 bg-[#3B82F6] rounded-lg flex items-center justify-center">
             <span className="text-white font-bold text-xl">A</span>
