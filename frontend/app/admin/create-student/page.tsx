@@ -72,7 +72,9 @@ export default function CreateStudentPage() {
 
   const [fingerprintStatus, setFingerprintStatus] = useState<"idle" | "scanning" | "success" | "error">("idle")
   const [fingerprintMessage, setFingerprintMessage] = useState("")
-  const [fingerprintSlotId, setFingerprintSlotId] = useState(0) // Will be set from DB ID
+  const [fingerprintIcon, setFingerprintIcon] = useState("")
+  const [fingerprintStep, setFingerprintStep] = useState(0)
+  const [fingerprintSlotId, setFingerprintSlotId] = useState(0)
 
   // Map DB ID to fingerprint slot (1-127)
   const mapToSlot = (dbId: number) => {
@@ -369,8 +371,7 @@ export default function CreateStudentPage() {
     if (!studentDbId) {
       toast({
         title: "Error",
-        description:
-          "Student ID not found. Please go back and save student information first.",
+        description: "Student ID not found. Please go back and save student information first.",
         variant: "destructive",
       });
       return;
@@ -378,62 +379,96 @@ export default function CreateStudentPage() {
 
     setFingerprintStatus("scanning")
     setFingerprintMessage("Connecting to sensor...")
+    setFingerprintIcon("🔄")
+    setFingerprintStep(0)
     setIsProcessing(true)
 
     try {
-      const response = await fetch("http://localhost:8000/api/fingerprint/enroll", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ studentId: fingerprintSlotId }),
-      })
+      const eventSource = new EventSource(`http://localhost:8000/api/fingerprint/enroll/stream/${fingerprintSlotId}`)
+      
+      let enrollmentSuccess = false
+      let finalFingerprintId: string | null = null
+      
+      eventSource.onmessage = async (event) => {
+        try {
+          const data = JSON.parse(event.data)
+          console.log("📡 SSE Event:", data)
+          
+          // Update SINGLE message (not appending)
+          setFingerprintMessage(data.message)
+          setFingerprintIcon(data.icon || "🔄")
+          if (data.step) setFingerprintStep(data.step)
+          
+          if (data.type === "success") {
+            enrollmentSuccess = true
+            finalFingerprintId = data.fingerprintId || String(fingerprintSlotId)
+            setFingerprintStatus("success")
+            setFingerprintIcon("🎉")
+            
+            eventSource.close()
+            
+            await fetch('/api/students/update-biometric', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                studentDbId,
+                fingerprintId: finalFingerprintId,
+              }),
+            })
 
-      const data = await response.json()
-
-      if (data.success) {
-        setFingerprintStatus("success")
-        setFingerprintMessage(data.message || "Fingerprint enrolled successfully!")
-        
-        // Update student record with fingerprint ID
-        await fetch('/api/students/update-biometric', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            studentDbId,
-            fingerprintId: fingerprintSlotId,
-          }),
-        })
-
-        setFingerprintEnrolled(true)
-        
-        toast({
-          title: "Success",
-          description: "Fingerprint scanned and enrolled successfully!",
-        })
-      } else {
-        setFingerprintStatus("error")
-        setFingerprintMessage(data.error || "Enrollment failed. Please try again.")
-        
-        toast({
-          title: "Error",
-          description: "Failed to scan fingerprint. Please try again.",
-          variant: "destructive",
-        })
+            setFingerprintEnrolled(true)
+            setIsProcessing(false)
+            
+            toast({
+              title: "Success",
+              description: "Fingerprint enrolled successfully!",
+            })
+          } else if (data.type === "error") {
+            setFingerprintStatus("error")
+            setFingerprintIcon("❌")
+            eventSource.close()
+            setIsProcessing(false)
+            
+            toast({
+              title: "Error",
+              description: data.message || "Fingerprint enrollment failed.",
+              variant: "destructive",
+            })
+          }
+        } catch (e) {
+          console.error("Error parsing SSE event:", e)
+        }
       }
+      
+      eventSource.onerror = (error) => {
+        console.error("SSE Error:", error)
+        eventSource.close()
+        
+        if (!enrollmentSuccess) {
+          setFingerprintStatus("error")
+          setFingerprintMessage("Connection lost. Please try again.")
+          setFingerprintIcon("❌")
+          setIsProcessing(false)
+          
+          toast({
+            title: "Error",
+            description: "Lost connection to fingerprint service.",
+            variant: "destructive",
+          })
+        }
+      }
+      
     } catch (error) {
       setFingerprintStatus("error")
-      setFingerprintMessage("Failed to connect to fingerprint service. Make sure the backend is running.")
+      setFingerprintMessage("Failed to connect to fingerprint service.")
+      setFingerprintIcon("❌")
+      setIsProcessing(false)
       
       toast({
         title: "Error",
         description: "Failed to connect to fingerprint service.",
         variant: "destructive",
       });
-    } finally {
-      setIsProcessing(false);
     }
   };
 
@@ -627,6 +662,7 @@ export default function CreateStudentPage() {
 
             {step === 2 && (
               <div className="space-y-6">
+                {/* Face Registration - existing code */}
                 <div className="text-center py-8 bg-[#F8FAFC] rounded-lg">
                   <div
                     className={`w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-4 ${
@@ -697,45 +733,100 @@ export default function CreateStudentPage() {
                   )}
                 </div>
 
+                {/* Fingerprint Registration - UPDATED */}
                 <div className="text-center py-8 bg-[#F8FAFC] rounded-lg">
-                  <div className={`w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-4 ${
-                    fingerprintEnrolled ? "bg-green-100" : fingerprintStatus === "scanning" ? "bg-yellow-100" : fingerprintStatus === "error" ? "bg-red-100" : "bg-[#EBF5FF]"
+                  {/* Icon Circle */}
+                  <div className={`w-28 h-28 rounded-full flex items-center justify-center mx-auto mb-6 transition-all duration-300 ${
+                    fingerprintEnrolled || fingerprintStatus === "success" 
+                      ? "bg-green-100" 
+                      : fingerprintStatus === "scanning" 
+                        ? "bg-blue-100 animate-pulse" 
+                        : fingerprintStatus === "error" 
+                          ? "bg-red-100" 
+                          : "bg-[#EBF5FF]"
                   }`}>
-                    {fingerprintStatus === "scanning" ? (
-                      <span className="text-4xl animate-pulse">⏳</span>
-                    ) : fingerprintStatus === "success" || fingerprintEnrolled ? (
-                      <span className="text-4xl">✅</span>
-                    ) : fingerprintStatus === "error" ? (
-                      <span className="text-4xl">❌</span>
-                    ) : (
-                      <span className="text-4xl">👆</span>
-                    )}
+                    <span className="text-5xl">
+                      {fingerprintStatus === "idle" && "👆"}
+                      {fingerprintStatus === "scanning" && fingerprintIcon}
+                      {fingerprintStatus === "success" && "✅"}
+                      {fingerprintStatus === "error" && "❌"}
+                      {fingerprintEnrolled && "✅"}
+                    </span>
                   </div>
-                  <p className="text-black font-medium mb-2">Fingerprint Registration (Slot ID: {fingerprintSlotId})</p>
-                  
-                  {fingerprintMessage ? (
-                    <div className="mb-4 p-4 bg-white rounded-lg border border-[#E2E8F0] max-h-48 overflow-y-auto">
-                      <pre className="text-left text-sm text-[#334155] whitespace-pre-wrap font-mono">
+
+                  {/* Title */}
+                  <p className="text-black font-semibold text-lg mb-4">
+                    Fingerprint Registration (Slot ID: {fingerprintSlotId})
+                  </p>
+
+                  {/* Single Bold Message */}
+                  {fingerprintStatus !== "idle" && !fingerprintEnrolled && (
+                    <div className="mb-6">
+                      <p className={`text-2xl font-bold mb-2 ${
+                        fingerprintStatus === "success" ? "text-green-600" :
+                        fingerprintStatus === "error" ? "text-red-600" :
+                        "text-blue-600"
+                      }`}>
                         {fingerprintMessage}
-                      </pre>
+                      </p>
+                      
+                      {/* Step Indicator */}
+                      {fingerprintStatus === "scanning" && fingerprintStep > 0 && (
+                        <div className="flex justify-center items-center gap-3 mt-4">
+                          {[1, 2, 3].map((s) => (
+                            <div
+                              key={s}
+                              className={`w-4 h-4 rounded-full transition-all duration-300 ${
+                                s <= fingerprintStep
+                                  ? 'bg-blue-500 scale-110'
+                                  : 'bg-gray-300'
+                              }`}
+                            />
+                          ))}
+                          <span className="text-sm text-gray-500 ml-2">
+                            Step {fingerprintStep} of 3
+                          </span>
+                        </div>
+                      )}
                     </div>
-                  ) : (
-                    <p className="text-[#64748B] mb-4">
-                      {fingerprintEnrolled ? "Fingerprint enrolled successfully!" : "Scan student fingerprint (Optional)"}
+                  )}
+
+                  {/* Success Message */}
+                  {fingerprintEnrolled && (
+                    <p className="text-2xl font-bold text-green-600 mb-4">
+                      Fingerprint Enrolled Successfully!
                     </p>
                   )}
-                  
+
+                  {/* Idle State */}
+                  {fingerprintStatus === "idle" && !fingerprintEnrolled && (
+                    <p className="text-[#64748B] mb-4">
+                      Scan student fingerprint (Optional)
+                    </p>
+                  )}
+
+                  {/* Scan Button */}
                   {!fingerprintEnrolled && (
                     <Button 
                       onClick={handleScanFingerprint}
                       disabled={isProcessing || fingerprintStatus === "scanning"}
-                      className="bg-[#3B82F6] hover:bg-[#2563EB] text-white"
+                      className="bg-[#3B82F6] hover:bg-[#2563EB] text-white px-8 py-2"
                     >
-                      {fingerprintStatus === "scanning" ? "Scanning..." : "Scan Fingerprint"}
+                      {fingerprintStatus === "scanning" ? (
+                        <span className="flex items-center gap-2">
+                          <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                          Scanning...
+                        </span>
+                      ) : fingerprintStatus === "error" ? (
+                        "Try Again"
+                      ) : (
+                        "Scan Fingerprint"
+                      )}
                     </Button>
                   )}
                 </div>
 
+                {/* Action Buttons - existing code */}
                 <div className="flex justify-end gap-4">
                   <Button
                     onClick={() => setStep(1)}
