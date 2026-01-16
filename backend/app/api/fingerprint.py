@@ -9,7 +9,7 @@ from typing import Optional
 router = APIRouter()
 
 # ============ SERIAL CONFIG ============
-SERIAL_PORT = "COM3"  # Change this to your Arduino's COM port
+SERIAL_PORT = "COM5"  # Change this to your Arduino's COM port
 BAUD_RATE = 9600
 serial_connection = None
 
