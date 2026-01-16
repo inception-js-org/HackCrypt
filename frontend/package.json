@@ -12,7 +12,8 @@
     "db:studio": "drizzle-kit studio",
     "db:migrate": "tsx scripts/migrate-db.ts",
     "db:test": "tsx scripts/test-db-connection.ts",
-    "check-users": "tsx scripts/check-users.ts"
+    "check-users": "tsx scripts/check-users.ts",
+    "seed:admin": "tsx scripts/seed-admin.ts"
   },
   "dependencies": {
     "@clerk/nextjs": "^6.36.7",

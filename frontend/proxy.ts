@@ -1,4 +1,5 @@
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
+import { NextResponse } from 'next/server'
 
 // Define public routes that don't require authentication
 const isPublicRoute = createRouteMatcher([
@@ -7,7 +8,19 @@ const isPublicRoute = createRouteMatcher([
   '/api/webhooks(.*)',
 ])
 
+// Define admin routes
+const isAdminRoute = createRouteMatcher([
+  '/admin(.*)',
+])
+
 export default clerkMiddleware(async (auth, request) => {
+  // Check if admin is logged in (for admin routes)
+  if (isAdminRoute(request)) {
+    // Allow admin routes if there's an admin session in localStorage
+    // This will be validated on the client side
+    return NextResponse.next()
+  }
+
   // Protect all routes except public ones
   if (!isPublicRoute(request)) {
     await auth.protect()

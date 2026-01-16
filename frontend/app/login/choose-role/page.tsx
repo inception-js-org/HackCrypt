@@ -7,8 +7,14 @@ export default function ChooseRolePage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
 
-  const handleRoleSelection = (role: "STUDENT" | "FACULTY_PENDING", action: "signup" | "signin") => {
+  const handleRoleSelection = (role: "STUDENT" | "FACULTY_PENDING" | "ADMIN", action: "signup" | "signin") => {
     setLoading(true);
+    
+    // Admin has separate login page
+    if (role === "ADMIN") {
+      router.push("/login/admin");
+      return;
+    }
     
     // Store role in sessionStorage to use after authentication
     sessionStorage.setItem("selectedRole", role);
@@ -22,19 +28,27 @@ export default function ChooseRolePage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
-      <div className="max-w-4xl w-full mx-4">
+    <div className="min-h-screen flex items-center justify-center bg-white">
+      <div className="max-w-6xl w-full mx-4">
+        <div className="text-left mb-8">
+          <button
+            onClick={() => router.push("/")}
+            className="text-gray-600 hover:text-gray-900 font-medium"
+          >
+            ← Back to Home
+          </button>
+        </div>
         <div className="text-center mb-12">
           <h1 className="text-4xl font-bold text-gray-900 mb-4">Choose Your Role</h1>
           <p className="text-lg text-gray-600">Select your role to continue</p>
         </div>
 
-        <div className="grid md:grid-cols-2 gap-8">
+        <div className="grid md:grid-cols-3 gap-8">
           {/* Student Card */}
-          <div className="bg-white rounded-2xl shadow-xl p-8 hover:shadow-2xl transition-shadow">
+          <div className="bg-white rounded-2xl shadow-xl p-10 hover:shadow-2xl transition-all border-2 border-blue-200">
             <div className="text-center mb-6">
-              <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <svg className="w-10 h-10 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="w-24 h-24 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg className="w-12 h-12 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                 </svg>
               </div>
@@ -61,10 +75,10 @@ export default function ChooseRolePage() {
           </div>
 
           {/* Faculty Card */}
-          <div className="bg-white rounded-2xl shadow-xl p-8 hover:shadow-2xl transition-shadow">
+          <div className="bg-white rounded-2xl shadow-xl p-10 hover:shadow-2xl transition-all border-2 border-blue-200">
             <div className="text-center mb-6">
-              <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <svg className="w-10 h-10 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="w-24 h-24 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg className="w-12 h-12 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                 </svg>
               </div>
@@ -76,28 +90,42 @@ export default function ChooseRolePage() {
               <button
                 onClick={() => handleRoleSelection("FACULTY_PENDING", "signup")}
                 disabled={loading}
-                className="w-full py-3 px-6 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 font-medium transition-colors"
+                className="w-full py-3 px-6 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 font-medium transition-colors"
               >
                 Sign Up as Faculty
               </button>
               <button
                 onClick={() => handleRoleSelection("FACULTY_PENDING", "signin")}
                 disabled={loading}
-                className="w-full py-3 px-6 bg-green-50 text-green-600 rounded-lg hover:bg-green-100 disabled:opacity-50 font-medium transition-colors"
+                className="w-full py-3 px-6 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 disabled:opacity-50 font-medium transition-colors"
               >
                 Sign In as Faculty
               </button>
             </div>
           </div>
-        </div>
 
-        <div className="text-center mt-8">
-          <button
-            onClick={() => router.push("/")}
-            className="text-gray-600 hover:text-gray-900 font-medium"
-          >
-            ← Back to Home
-          </button>
+          {/* Admin Card */}
+          <div className="bg-white rounded-2xl shadow-xl p-10 hover:shadow-2xl transition-all border-2 border-blue-200">
+            <div className="text-center mb-6">
+              <div className="w-24 h-24 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg className="w-12 h-12 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                </svg>
+              </div>
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">I'm Admin</h2>
+              <p className="text-gray-600 mb-6">Manage system and oversee all operations</p>
+            </div>
+            
+            <div className="space-y-3">
+              <button
+                onClick={() => handleRoleSelection("ADMIN", "signin")}
+                disabled={loading}
+                className="w-full py-3 px-6 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 font-medium transition-colors"
+              >
+                Admin Login
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </div>

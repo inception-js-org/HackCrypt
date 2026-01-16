@@ -49,7 +49,7 @@ const timetableData = [
 export default function StudentTimetablePage() {
   return (
     <PageContainer title="Timetable" description="View your weekly class schedule">
-      <Card className="border-0 shadow-lg overflow-hidden">
+      <Card className="border-0 shadow-lg overflow-hidden ">
         <CardHeader className="bg-[#3B82F6] text-white">
           <CardTitle>Weekly Schedule</CardTitle>
         </CardHeader>

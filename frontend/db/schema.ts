@@ -49,6 +49,20 @@ export const users = pgTable("users", {
   updatedAt: timestamp("updated_at").defaultNow().$onUpdate(() => new Date()),
 });
 
+/* ---------- ADMIN USERS ---------- */
+
+export const adminUsers = pgTable("admin_users", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  username: text("username").notNull().unique(),
+  password: text("password").notNull(), // In production, this should be hashed
+  email: text("email").notNull().default("admin@system.com"),
+  role: text("role").notNull().default("ADMIN"),
+  firstName: text("first_name").default("Admin"),
+  lastName: text("last_name").default("User"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().$onUpdate(() => new Date()),
+});
+
 /* ---------- STUDENTS ---------- */
 
 // export const students = pgTable("students", {
