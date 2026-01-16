@@ -64,16 +64,21 @@ export const adminUsers = pgTable("admin_users", {
 });
 
 /* ---------- STUDENTS ---------- */
-
-// export const students = pgTable("students", {
-//   id: uuid("id").defaultRandom().primaryKey(),
-//   userId: uuid("user_id")
-//     .references(() => users.id)
-//     .notNull(),
-//   rollNumber: text("roll_number").unique().notNull(),
-//   department: text("department").notNull(),
-//   year: integer("year"),
-// });
+export const students = pgTable("students", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  clerkUserId: text("clerk_user_id").unique(), // Will be set after student signs up
+  firstName: text("first_name").notNull(),
+  lastName: text("last_name").notNull(),
+  email: text("email").notNull().unique(),
+  phone: text("phone").notNull(),
+  class: text("class").notNull(),
+  faceId: text("face_id"), // F_<id> stored in Pinecone
+  fingerprintId: text("fingerprint_id"), // FP_<id> for fingerprint system
+  invitationSent: boolean("invitation_sent").default(false),
+  isActive: boolean("is_active").default(false), // Becomes true after student signs up
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().$onUpdate(() => new Date()),
+});
 
 // /* ---------- FACULTY ---------- */
 

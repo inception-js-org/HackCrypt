@@ -6,6 +6,7 @@ const isPublicRoute = createRouteMatcher([
   '/',
   '/login(.*)',
   '/api/webhooks(.*)',
+  '/api/students(.*)',
 ])
 
 // Define admin routes

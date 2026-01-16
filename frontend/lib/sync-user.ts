@@ -1,5 +1,5 @@
 import db from "../db/index";
-import { users } from "@/db/schema";
+import { users, students } from "@/db/schema";
 import { eq } from "drizzle-orm";
 
 export type UserRole = "STUDENT" | "FACULTY" | "FACULTY_PENDING" | "ADMIN";
@@ -7,6 +7,7 @@ export type UserRole = "STUDENT" | "FACULTY" | "FACULTY_PENDING" | "ADMIN";
 /**
  * Syncs a Clerk user to the database using an upsert pattern.
  * Creates a new user if they don't exist, or updates their information if they do.
+ * For STUDENT role, also updates the students table with clerkUserId.
  */
 export async function syncUserToDatabase({
   clerkUserId,
@@ -24,6 +25,31 @@ export async function syncUserToDatabase({
   console.log("🔄 [DB] Syncing user:", clerkUserId, "role:", role);
 
   try {
+    // If this is a student, check if they were invited by admin
+    if (role === "STUDENT") {
+      const existingStudent = await db
+        .select()
+        .from(students)
+        .where(eq(students.email, email))
+        .limit(1);
+
+      if (existingStudent.length > 0) {
+        console.log("✅ [DB] Found pre-created student, linking Clerk user...");
+        
+        await db
+          .update(students)
+          .set({
+            clerkUserId,
+            isActive: true,
+            updatedAt: new Date(),
+          })
+          .where(eq(students.id, existingStudent[0].id));
+
+        console.log("✅ [DB] Student record updated with Clerk user ID");
+      }
+    }
+
+    // Sync to users table (for all roles)
     const [user] = await db
       .insert(users)
       .values({
