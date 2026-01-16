@@ -13,3 +13,16 @@ protobuf>=3.20.0,<4.0.0
 # Required by mediapipe
 attrs>=19.1.0
 matplotlib>=3.5
+pinecone
+python-dotenv
+uvicorn
+
+tensorflow==2.15.0 
+protobuf==3.20.3 
+mediapipe==0.10.7
+tf-keras
+insightface 
+onnxruntime
+onnxruntime-gpu
+opencv-contrib-python
+python-multipart
