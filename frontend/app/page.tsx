@@ -105,9 +105,9 @@ export default function LandingPage() {
                 <div className="w-8 h-8 bg-[#3B82F6] rounded-lg flex items-center justify-center">
                   <span className="text-white font-bold">A</span>
                 </div>
-                <span className="font-bold text-lg">AttendAI</span>
+                <span className="font-bold text-lg">ATTENDIX</span>
               </div>
-              <p className="text-white/60">© 2026 AttendAI. All rights reserved.</p>
+              <p className="text-white/60">© 2026 ATTENDIX. All rights reserved.</p>
             </div>
           </footer>
         </>
