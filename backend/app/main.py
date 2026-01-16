@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.api import enroll, identify
+from app.api import enroll, identify, fingerprint
 
 app = FastAPI(
     title="Unified Identity Verification System",
@@ -19,6 +20,7 @@ app.add_middleware(
 
 app.include_router(enroll.router, prefix="/enroll", tags=["Enrollment"])
 app.include_router(identify.router, prefix="/identify", tags=["Identification"])
+app.include_router(fingerprint.router, prefix="/api/fingerprint", tags=["Fingerprint"])
 
 
 @app.get("/")
@@ -36,6 +38,10 @@ def root():
             "identify": {
                 "POST /identify/": "Identify with image upload",
                 "POST /identify/webcam": "Identify with webcam"
+            },
+            "fingerprint": {
+                "POST /api/fingerprint/enroll": "Enroll fingerprint via Arduino",
+                "GET /api/fingerprint/ports": "List available serial ports"
             }
         }
     }
