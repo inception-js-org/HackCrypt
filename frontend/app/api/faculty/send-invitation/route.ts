@@ -1,10 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server'
-import db from '@/db'
-import { faculty } from '@/db/schema'
-import { eq } from 'drizzle-orm'
-import { Resend } from 'resend'
+import { NextRequest, NextResponse } from "next/server";
+import db from "@/db";
+import { faculty } from "@/db/schema";
+import { eq } from "drizzle-orm";
+import { Resend } from "resend";
 
-const resend = new Resend(process.env.RESEND_API_KEY)
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 export async function POST(request: NextRequest) {
   try {
@@ -79,7 +79,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Step 3: Create new Clerk invitation
+    // Step 3: Create Clerk invitation with FACULTY role
     const clerkResponse = await fetch('https://api.clerk.com/v1/invitations', {
       method: 'POST',
       headers: {
@@ -94,7 +94,7 @@ export async function POST(request: NextRequest) {
           firstName: firstName,
           lastName: lastName,
         },
-        redirect_url: `${process.env.NEXT_PUBLIC_APP_URL}/login/sign-up?role=faculty`,
+        redirect_url: `${process.env.NEXT_PUBLIC_APP_URL}/login/sign-up?role=FACULTY`,
       }),
     })
 
@@ -119,9 +119,9 @@ export async function POST(request: NextRequest) {
     // Step 5: Send custom email with invitation link
     try {
       await resend.emails.send({
-        from: 'School System <onboarding@resend.dev>',
+        from: 'School Portal <noreply@yourdomain.com>',
         to: email,
-        subject: 'Welcome to School Portal - Faculty Registration',
+        subject: 'Welcome to School Portal - Faculty Account Created',
         html: `
           <!DOCTYPE html>
           <html>
@@ -131,7 +131,7 @@ export async function POST(request: NextRequest) {
                 .container { max-width: 600px; margin: 0 auto; padding: 20px; }
                 .header { background: #3B82F6; color: white; padding: 20px; text-align: center; }
                 .content { padding: 20px; background: #f9f9f9; }
-                .button { display: inline-block; padding: 12px 24px; background: #10B981; color: white; text-decoration: none; border-radius: 5px; margin: 20px 0; }
+                .button { display: inline-block; padding: 12px 24px; background: #3B82F6; color: white; text-decoration: none; border-radius: 6px; margin: 20px 0; }
                 .footer { text-align: center; padding: 20px; font-size: 12px; color: #666; }
                 .info-box { background: white; padding: 15px; border-left: 4px solid #3B82F6; margin: 15px 0; }
               </style>
@@ -149,7 +149,7 @@ export async function POST(request: NextRequest) {
                     <p><strong>Faculty ID:</strong> TCH-${facultyDbId}</p>
                     <p><strong>Role:</strong> Faculty Member</p>
                   </div>
-
+                  
                   <p>Please click the button below to complete your registration and set up your account:</p>
                   <a href="${invitation.url}" class="button">Complete Registration</a>
                   
@@ -176,25 +176,21 @@ export async function POST(request: NextRequest) {
           </html>
         `,
       })
-      console.log('Faculty invitation email sent successfully to:', email)
     } catch (emailError) {
       console.error('Email sending failed:', emailError)
-      // Don't fail the whole process if email fails
+      // Don't fail the whole request if email fails
     }
 
     return NextResponse.json({
       success: true,
-      message: 'Faculty invitation sent successfully',
+      message: 'Invitation sent successfully',
       invitationId: invitation.id,
     })
 
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error sending faculty invitation:', error)
     return NextResponse.json(
-      { 
-        success: false,
-        error: error.message || 'Failed to send faculty invitation' 
-      },
+      { error: error instanceof Error ? error.message : 'Failed to send invitation' },
       { status: 500 }
     )
   }

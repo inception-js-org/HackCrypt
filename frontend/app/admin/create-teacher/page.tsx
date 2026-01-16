@@ -38,56 +38,106 @@ export default function CreateTeacherPage() {
 
   const fetchRecentTeachers = async () => {
     try {
-      const response = await fetch("/api/faculty")
+      const response = await fetch("/api/faculty", {
+        method: "GET",
+        headers: { "Content-Type": "application/json" },
+      })
+      
+      if (!response.ok) {
+        console.error("❌ API response not ok:", response.status, response.statusText)
+        return
+      }
+      
       const data = await response.json()
+      console.log("📥 Fetched teachers:", data)
       if (data.success) {
         setRecentTeachers(data.faculty.slice(0, 3))
       }
     } catch (error) {
-      console.error("Error fetching teachers:", error)
+      console.error("❌ Error fetching teachers:", error)
+      // Check if it's a network error
+      if (error instanceof TypeError && error.message === "Failed to fetch") {
+        console.error("Network error - check if the API route exists and the server is running")
+      }
     }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    
+    console.log("🚀 Form submitted with data:", formData)
+    
+    // Client-side validation
+    if (!formData.firstName || !formData.lastName || !formData.email || !formData.phone || !formData.department) {
+      toast({
+        title: "Validation Error",
+        description: "Please fill in all required fields",
+        variant: "destructive",
+      })
+      return
+    }
+
     setIsSubmitting(true)
 
     try {
       // Step 1: Create faculty in database
+      console.log("📤 Sending POST to /api/faculty...")
       const response = await fetch("/api/faculty", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "Accept": "application/json"
+        },
         body: JSON.stringify(formData),
       })
 
+      console.log("📥 Response status:", response.status)
+      
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.error("❌ API error response:", errorText)
+        throw new Error(`API error: ${response.status} - ${errorText}`)
+      }
+      
       const data = await response.json()
+      console.log("📥 Response data:", data)
 
       if (!data.success) {
         throw new Error(data.error || "Failed to create teacher")
       }
 
-      // Step 2: Send invitation email (using faculty route)
-      const invitationResponse = await fetch("/api/faculty/send-invitation", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          facultyDbId: data.faculty.id.toString(),
-          email: formData.email,
-          firstName: formData.firstName,
-          lastName: formData.lastName,
-        }),
-      })
-
-      const invitationData = await invitationResponse.json()
-
-      if (!invitationData.success) {
-        throw new Error(invitationData.error || "Failed to send invitation")
-      }
-
       toast({
-        title: "Success!",
-        description: `Teacher ${data.faculty.employeeId} created successfully! Invitation email sent to ${formData.email}`,
+        title: "Teacher Created!",
+        description: `Teacher ${data.faculty.employeeId} created successfully!`,
       })
+
+      // Step 2: Send invitation email (optional - only if you want to send invites)
+      try {
+        console.log("📤 Sending invitation...")
+        const invitationResponse = await fetch("/api/faculty/send-invitation", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            facultyDbId: data.faculty.id.toString(),
+            email: formData.email,
+            firstName: formData.firstName,
+            lastName: formData.lastName,
+          }),
+        })
+
+        const invitationData = await invitationResponse.json()
+        console.log("📥 Invitation response:", invitationData)
+
+        if (invitationData.success) {
+          toast({
+            title: "Invitation Sent!",
+            description: `Invitation email sent to ${formData.email}`,
+          })
+        }
+      } catch (inviteError) {
+        console.error("Invitation error (non-fatal):", inviteError)
+        // Don't fail the whole operation if invitation fails
+      }
 
       // Reset form and refresh
       setFormData({
@@ -101,6 +151,7 @@ export default function CreateTeacherPage() {
       })
       fetchRecentTeachers()
     } catch (error) {
+      console.error("❌ Error creating teacher:", error)
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Something went wrong",
@@ -123,7 +174,7 @@ export default function CreateTeacherPage() {
               <div className="grid md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="firstName" className="text-black">
-                    First Name
+                    First Name <span className="text-red-500">*</span>
                   </Label>
                   <Input
                     id="firstName"
@@ -136,7 +187,7 @@ export default function CreateTeacherPage() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="lastName" className="text-black">
-                    Last Name
+                    Last Name <span className="text-red-500">*</span>
                   </Label>
                   <Input
                     id="lastName"
@@ -150,7 +201,7 @@ export default function CreateTeacherPage() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="email" className="text-black">
-                  Email
+                  Email <span className="text-red-500">*</span>
                 </Label>
                 <Input
                   id="email"
@@ -164,7 +215,7 @@ export default function CreateTeacherPage() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="phone" className="text-black">
-                  Phone Number
+                  Phone Number <span className="text-red-500">*</span>
                 </Label>
                 <Input
                   id="phone"
@@ -177,11 +228,12 @@ export default function CreateTeacherPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label className="text-black">Department</Label>
+                <Label className="text-black">
+                  Department <span className="text-red-500">*</span>
+                </Label>
                 <Select
                   value={formData.department}
                   onValueChange={(value) => setFormData({ ...formData, department: value })}
-                  required
                 >
                   <SelectTrigger className="border-[#E2E8F0]">
                     <SelectValue placeholder="Select department" />
@@ -217,17 +269,17 @@ export default function CreateTeacherPage() {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label className="text-black">Assigned Classes (Multi-select)</Label>
+                <Label className="text-black">Assigned Classes</Label>
                 <Select
-                  value={formData.assignedClasses[0] || ""}
+                  value=""
                   onValueChange={(value) => {
-                    if (!formData.assignedClasses.includes(value)) {
+                    if (value && !formData.assignedClasses.includes(value)) {
                       setFormData({ ...formData, assignedClasses: [...formData.assignedClasses, value] })
                     }
                   }}
                 >
                   <SelectTrigger className="border-[#E2E8F0]">
-                    <SelectValue placeholder="Select classes" />
+                    <SelectValue placeholder="Select classes to assign" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="12-A">Class 12-A</SelectItem>

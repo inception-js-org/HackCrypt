@@ -1,6 +1,5 @@
 import {
   pgTable,
-  uuid,
   text,
   timestamp,
   boolean,
@@ -14,30 +13,24 @@ import {
 export const roleEnum = pgEnum("role", [
   "STUDENT",
   "FACULTY",
-  "FACULTY_PENDING",
   "ADMIN",
 ]);
 
-// export const sessionStatusEnum = pgEnum("session_status", [
-//   "ACTIVE",
-//   "CLOSED",
-// ]);
+export const sessionStatusEnum = pgEnum("session_status", [
+  "SCHEDULED",
+  "ACTIVE",
+  "CLOSED",
+]);
 
-// export const attendanceStatusEnum = pgEnum("attendance_status", [
-//   "PRESENT",
-//   "REJECTED",
-//   "FLAGGED",
-// ]);
+export const attendanceStatusEnum = pgEnum("attendance_status", [
+  "PRESENT",
+  "FACE_ONLY",
+  "FINGERPRINT_ONLY",
+  "ABSENT",
+]);
 
-// export const anomalySeverityEnum = pgEnum("anomaly_severity", [
-//   "LOW",
-//   "MEDIUM",
-//   "HIGH",
-// ]);
+/* ---------- USERS ---------- */
 
-/* ---------- USERS (AUTH ANCHOR) ---------- */
-
-// db/schema.ts
 export const users = pgTable("users", {
   id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
   clerkUserId: text("clerk_user_id").notNull().unique(),
@@ -80,97 +73,76 @@ export const students = pgTable("students", {
   updatedAt: timestamp("updated_at").defaultNow().$onUpdate(() => new Date()),
 });
 
-// /* ---------- FACULTY ---------- */
+/* ---------- FACULTY ---------- */
 
 export const faculty = pgTable("faculty", {
   id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
-  clerkUserId: text("clerk_user_id").unique(), // Set after faculty signs up
+  clerkUserId: text("clerk_user_id").unique(),
   firstName: text("first_name").notNull(),
   lastName: text("last_name").notNull(),
   email: text("email").notNull().unique(),
   phone: text("phone").notNull(),
-  department: text("department").notNull(), // Mathematics, Physics, Chemistry, etc.
-  designation: text("designation"), // Professor, Assistant Professor, Lecturer, etc.
-  employeeId: text("employee_id").unique(), // TCH-2026-001 format
-  assignedClasses: jsonb("assigned_classes"), // Array of class IDs: ["12-A", "11-B"]
+  department: text("department").notNull(),
+  designation: text("designation"),
+  employeeId: text("employee_id").unique(),
+  assignedClasses: jsonb("assigned_classes").$type<string[]>().default([]),
   invitationSent: boolean("invitation_sent").default(false),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().$onUpdate(() => new Date()),
 });
 
-// /* ---------- CLASSROOMS / COURSES ---------- */
+/* ---------- CLASSES ---------- */
+export const classes = pgTable("classes", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  grade: text("grade").notNull(),
+  section: text("section").notNull(),
+  roomNumber: text("room_number"),
+  maxCapacity: integer("max_capacity").notNull(),
+  teacherId: integer("teacher_id").references(() => faculty.id),
+  subjects: jsonb("subjects").$type<string[]>().default([]),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().$onUpdate(() => new Date()),
+});
 
-// export const classrooms = pgTable("classrooms", {
-//   id: uuid("id").defaultRandom().primaryKey(),
-//   courseCode: text("course_code").notNull(),
-//   courseName: text("course_name").notNull(),
-//   type: text("type"), // LECTURE | LAB
-// });
+/* ---------- SESSIONS ---------- */
+export const sessions = pgTable("sessions", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  classId: integer("class_id").references(() => classes.id).notNull(),
+  facultyId: integer("faculty_id").references(() => faculty.id).notNull(),
+  subject: text("subject").notNull(),
+  scheduledStartTime: timestamp("scheduled_start_time").notNull(),
+  scheduledEndTime: timestamp("scheduled_end_time").notNull(),
+  actualStartTime: timestamp("actual_start_time"),
+  actualEndTime: timestamp("actual_end_time"),
+  status: sessionStatusEnum("status").default("SCHEDULED"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().$onUpdate(() => new Date()),
+});
 
-// /* ---------- CLASS SESSIONS ---------- */
+/* ---------- ATTENDANCE ---------- */
+export const attendance = pgTable("attendance", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  sessionId: integer("session_id").references(() => sessions.id).notNull(),
+  studentId: integer("student_id").references(() => students.id).notNull(),
+  faceRecognizedAt: timestamp("face_recognized_at"),
+  fingerprintVerifiedAt: timestamp("fingerprint_verified_at"),
+  faceConfidence: integer("face_confidence"), // Store as percentage 0-100
+  status: attendanceStatusEnum("status").default("ABSENT"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().$onUpdate(() => new Date()),
+});
 
-// export const sessions = pgTable("sessions", {
-//   id: uuid("id").defaultRandom().primaryKey(),
-//   classroomId: uuid("classroom_id")
-//     .references(() => classrooms.id)
-//     .notNull(),
-//   facultyId: uuid("faculty_id")
-//     .references(() => faculty.id)
-//     .notNull(),
-//   startTime: timestamp("start_time").notNull(),
-//   endTime: timestamp("end_time"),
-//   status: sessionStatusEnum("status").default("ACTIVE"),
-// });
+/* ---------- AMBIGUOUS ATTENDANCE ---------- */
+export const ambiguousAttendance = pgTable("ambiguous_attendance", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  sessionId: integer("session_id").references(() => sessions.id).notNull(),
+  classId: integer("class_id").references(() => classes.id).notNull(),
+  possibleStudentIds: jsonb("possible_student_ids").$type<number[]>().default([]),
+  faceEmbedding: jsonb("face_embedding").$type<number[]>(),
+  fingerprintData: text("fingerprint_data"),
+  reason: text("reason").notNull(), // "duplicate_face", "duplicate_fingerprint", "low_confidence", "mismatch"
+  resolved: boolean("resolved").default(false),
+  resolvedStudentId: integer("resolved_student_id").references(() => students.id),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
 
-// /* ---------- ID CARD PROFILES ---------- */
-
-// export const idCards = pgTable("id_cards", {
-//   id: uuid("id").defaultRandom().primaryKey(),
-//   studentId: uuid("student_id")
-//     .references(() => students.id)
-//     .notNull(),
-//   extractedName: text("extracted_name"),
-//   extractedRoll: text("extracted_roll"),
-//   faceImagePath: text("face_image_path"),
-//   validationScore: integer("validation_score"),
-//   verified: boolean("verified").default(false),
-// });
-
-// /* ---------- FINGERPRINTS (SIMULATED) ---------- */
-
-// export const fingerprints = pgTable("fingerprints", {
-//   id: uuid("id").defaultRandom().primaryKey(),
-//   studentId: uuid("student_id")
-//     .references(() => students.id)
-//     .notNull(),
-//   fingerprintVector: jsonb("fingerprint_vector").notNull(),
-// });
-
-// /* ---------- ATTENDANCE ---------- */
-
-// export const attendanceRecords = pgTable("attendance_records", {
-//   id: uuid("id").defaultRandom().primaryKey(),
-//   sessionId: uuid("session_id")
-//     .references(() => sessions.id)
-//     .notNull(),
-//   studentId: uuid("student_id")
-//     .references(() => students.id)
-//     .notNull(),
-//   status: attendanceStatusEnum("status").notNull(),
-//   confidenceScore: integer("confidence_score"),
-//   createdAt: timestamp("created_at").defaultNow(),
-// });
-
-// /* ---------- ANOMALY / PROXY LOGS ---------- */
-
-// export const anomalyLogs = pgTable("anomaly_logs", {
-//   id: uuid("id").defaultRandom().primaryKey(),
-//   userId: uuid("user_id")
-//     .references(() => users.id)
-//     .notNull(),
-//   sessionId: uuid("session_id")
-//     .references(() => sessions.id),
-//   reason: text("reason").notNull(),
-//   severity: anomalySeverityEnum("severity").default("LOW"),
-//   createdAt: timestamp("created_at").defaultNow(),
-// });

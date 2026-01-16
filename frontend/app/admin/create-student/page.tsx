@@ -70,42 +70,16 @@ export default function CreateStudentPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
-  const [fingerprintStatus, setFingerprintStatus] = useState<"idle" | "scanning" | "success" | "error">("idle")
-  const [fingerprintMessage, setFingerprintMessage] = useState("")
-  const [fingerprintSlotId, setFingerprintSlotId] = useState(0) // Will be set from DB ID
+  const [fingerprintStatus, setFingerprintStatus] = useState<
+    "idle" | "scanning" | "success" | "error"
+  >("idle");
+  const [fingerprintMessage, setFingerprintMessage] = useState("");
+  const [fingerprintSlotId, setFingerprintSlotId] = useState(0);
 
   // Map DB ID to fingerprint slot (1-127)
   const mapToSlot = (dbId: number) => {
-    return ((dbId - 1) % 127) + 1
-  }
-
-  const handleFingerprintScan = async () => {
-    setFingerprintStatus("scanning")
-    setFingerprintMessage("Connecting to sensor...")
-
-    try {
-      const response = await fetch("http://localhost:8000/api/fingerprint/enroll", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ studentId }),
-      })
-
-      const data = await response.json()
-
-      if (data.success) {
-        setFingerprintStatus("success")
-        setFingerprintMessage(data.message || "Fingerprint enrolled successfully!")
-      } else {
-        setFingerprintStatus("error")
-        setFingerprintMessage(data.error || "Enrollment failed. Please try again.")
-      }
-    } catch (error) {
-      setFingerprintStatus("error")
-      setFingerprintMessage("Failed to connect to fingerprint service. Make sure the backend is running.")
-    }
-  }
+    return ((dbId - 1) % 127) + 1;
+  };
 
   const validateForm = (): boolean => {
     const newErrors: FormErrors = {};
@@ -170,19 +144,12 @@ export default function CreateStudentPage() {
           throw new Error("Failed to create student");
         }
 
-<<<<<<< HEAD
         const data = await response.json();
         setStudentDbId(data.id);
+        const slotId = mapToSlot(Number(data.id));
+        setFingerprintSlotId(slotId);
         setStep(2);
 
-=======
-        const data = await response.json()
-        setStudentDbId(data.id)
-        const slotId = mapToSlot(Number(data.id))
-        setFingerprintSlotId(slotId)
-        setStep(2)
-        
->>>>>>> origin/durva
         toast({
           title: "Success",
           description:
@@ -202,101 +169,110 @@ export default function CreateStudentPage() {
     if (!studentDbId) {
       toast({
         title: "Error",
-        description: "Student ID not found. Please go back and save student information first.",
+        description:
+          "Student ID not found. Please go back and save student information first.",
         variant: "destructive",
-      })
-      return
+      });
+      return;
     }
 
-    console.log('🎥 Starting face capture for student:', studentDbId)
+    console.log("🎥 Starting face capture for student:", studentDbId);
 
-    setShowWebcam(true)
-    setIsProcessing(true)
-    
+    setShowWebcam(true);
+    setIsProcessing(true);
+
     try {
-      const faceId = studentDbId
-      
+      const faceId = studentDbId;
+
       // Poll for enrollment completion
-      let completed = false
-      let attempts = 0
-      const maxAttempts = 60 // 60 seconds max
-      
-      console.log('⏳ Waiting for enrollment to complete...')
-      
+      let completed = false;
+      let attempts = 0;
+      const maxAttempts = 60; // 60 seconds max
+
+      console.log("⏳ Waiting for enrollment to complete...");
+
       while (!completed && attempts < maxAttempts) {
-        await new Promise(resolve => setTimeout(resolve, 1000)) // Wait 1 second
-        
-        const statusResponse = await fetch(`http://localhost:8000/enroll/webcam/status?student_id=${faceId}`)
-        const status = await statusResponse.json()
-        
-        console.log(`Enrollment status (attempt ${attempts + 1}):`, status)
-        
+        await new Promise((resolve) => setTimeout(resolve, 1000)); // Wait 1 second
+
+        const statusResponse = await fetch(
+          `http://localhost:8000/enroll/webcam/status?student_id=${faceId}`
+        );
+        const status = await statusResponse.json();
+
+        console.log(`Enrollment status (attempt ${attempts + 1}):`, status);
+
         if (status.completed) {
-          completed = true
-          console.log('✅ Enrollment completed!')
-          break
+          completed = true;
+          console.log("✅ Enrollment completed!");
+          break;
         }
-        
-        attempts++
+
+        attempts++;
       }
-      
+
       if (!completed) {
-        throw new Error('Enrollment timeout. Please try again.')
+        throw new Error("Enrollment timeout. Please try again.");
       }
-      
+
       // Finalize enrollment
-      console.log('💾 Finalizing enrollment in Pinecone...')
-      const response = await fetch(`http://localhost:8000/enroll/webcam?student_id=${faceId}`, {
-        method: 'POST',
-      })
+      console.log("💾 Finalizing enrollment in Pinecone...");
+      const response = await fetch(
+        `http://localhost:8000/enroll/webcam?student_id=${faceId}`,
+        {
+          method: "POST",
+        }
+      );
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        console.error('❌ Face enrollment error:', errorData)
-        throw new Error(errorData.detail || 'Face enrollment failed')
+        const errorData = await response.json().catch(() => ({}));
+        console.error("❌ Face enrollment error:", errorData);
+        throw new Error(errorData.detail || "Face enrollment failed");
       }
 
-      const data = await response.json()
-      console.log('✅ Enrollment response:', data)
-      
+      const data = await response.json();
+      console.log("✅ Enrollment response:", data);
+
       // Update student record with face ID
-      console.log('📝 Updating database with face_id:', data.face_id)
-      const dbResponse = await fetch('/api/students/update-biometric', {
-        method: 'POST',
+      console.log("📝 Updating database with face_id:", data.face_id);
+      const dbResponse = await fetch("/api/students/update-biometric", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
           studentDbId,
           faceId: data.face_id,
         }),
-      })
+      });
 
-      const dbResult = await dbResponse.json()
-      console.log('✅ Database update result:', dbResult)
+      const dbResult = await dbResponse.json();
+      console.log("✅ Database update result:", dbResult);
 
       if (!dbResponse.ok) {
-        throw new Error(dbResult.error || 'Failed to update database')
+        throw new Error(dbResult.error || "Failed to update database");
       }
 
-      setFaceEnrolled(true)
-      
+      setFaceEnrolled(true);
+
       toast({
         title: "Success",
         description: `Face captured successfully! (${data.samples} samples collected)`,
-      })
+      });
     } catch (error) {
-      console.error('❌ Face capture error:', error)
+      console.error("❌ Face capture error:", error);
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to capture face. Please try again.",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Failed to capture face. Please try again.",
         variant: "destructive",
-      })
+      });
     } finally {
-      setIsProcessing(false)
-      setShowWebcam(false)
+      setIsProcessing(false);
+      setShowWebcam(false);
     }
-  }
+  };
 
   const handleUploadPhoto = async (
     event: React.ChangeEvent<HTMLInputElement>
@@ -383,88 +359,67 @@ export default function CreateStudentPage() {
       return;
     }
 
-<<<<<<< HEAD
+    setFingerprintStatus("scanning");
+    setFingerprintMessage("Connecting to sensor...");
     setIsProcessing(true);
-    try {
-      const fingerprintId = studentDbId;
-
-      // TODO: Integrate with actual fingerprint scanner
-      // Simulating fingerprint scan
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-
-      // Update student record with fingerprint ID
-      await fetch("/api/students/update-biometric", {
-=======
-    setFingerprintStatus("scanning")
-    setFingerprintMessage("Connecting to sensor...")
-    setIsProcessing(true)
 
     try {
-      const response = await fetch("http://localhost:8000/api/fingerprint/enroll", {
->>>>>>> origin/durva
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-<<<<<<< HEAD
-        body: JSON.stringify({
-          studentDbId,
-          fingerprintId,
-        }),
-      });
+      const response = await fetch(
+        "http://localhost:8000/api/fingerprint/enroll",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ studentId: fingerprintSlotId }),
+        }
+      );
 
-      setFingerprintEnrolled(true);
-
-      toast({
-        title: "Success",
-        description: "Fingerprint scanned and enrolled successfully!",
-      });
-    } catch (error) {
-      toast({
-=======
-        body: JSON.stringify({ studentId: fingerprintSlotId }),
-      })
-
-      const data = await response.json()
+      const data = await response.json();
 
       if (data.success) {
-        setFingerprintStatus("success")
-        setFingerprintMessage(data.message || "Fingerprint enrolled successfully!")
-        
+        setFingerprintStatus("success");
+        setFingerprintMessage(
+          data.message || "Fingerprint enrolled successfully!"
+        );
+
         // Update student record with fingerprint ID
-        await fetch('/api/students/update-biometric', {
-          method: 'POST',
+        await fetch("/api/students/update-biometric", {
+          method: "POST",
           headers: {
-            'Content-Type': 'application/json',
+            "Content-Type": "application/json",
           },
           body: JSON.stringify({
             studentDbId,
-            fingerprintId: fingerprintSlotId,
+            fingerprintId: fingerprintSlotId.toString(),
           }),
-        })
+        });
 
-        setFingerprintEnrolled(true)
-        
+        setFingerprintEnrolled(true);
+
         toast({
           title: "Success",
           description: "Fingerprint scanned and enrolled successfully!",
-        })
+        });
       } else {
-        setFingerprintStatus("error")
-        setFingerprintMessage(data.error || "Enrollment failed. Please try again.")
-        
+        setFingerprintStatus("error");
+        setFingerprintMessage(
+          data.error || "Enrollment failed. Please try again."
+        );
+
         toast({
           title: "Error",
           description: "Failed to scan fingerprint. Please try again.",
           variant: "destructive",
-        })
+        });
       }
     } catch (error) {
-      setFingerprintStatus("error")
-      setFingerprintMessage("Failed to connect to fingerprint service. Make sure the backend is running.")
-      
+      setFingerprintStatus("error");
+      setFingerprintMessage(
+        "Failed to connect to fingerprint service. Make sure the backend is running."
+      );
+
       toast({
->>>>>>> origin/durva
         title: "Error",
         description: "Failed to connect to fingerprint service.",
         variant: "destructive",
@@ -474,19 +429,10 @@ export default function CreateStudentPage() {
     }
   };
 
-  const handleCreateStudent = async () => {
-    if (!faceEnrolled) {
-      toast({
-        title: "Warning",
-        description: "Please enroll face biometric before creating student.",
-        variant: "destructive",
-      });
-      return;
-    }
-
+  const handleComplete = async () => {
     setIsProcessing(true);
+
     try {
-      // Send invitation email via Clerk
       const response = await fetch("/api/students/send-invitation", {
         method: "POST",
         headers: {
@@ -520,6 +466,9 @@ export default function CreateStudentPage() {
       setStudentDbId("");
       setFaceEnrolled(false);
       setFingerprintEnrolled(false);
+      setFingerprintStatus("idle");
+      setFingerprintMessage("");
+      setFingerprintSlotId(0);
       setStep(1);
     } catch (error) {
       toast({
@@ -664,6 +613,7 @@ export default function CreateStudentPage() {
 
             {step === 2 && (
               <div className="space-y-6">
+                {/* Face Registration Section */}
                 <div className="text-center py-8 bg-[#F8FAFC] rounded-lg">
                   <div
                     className={`w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-4 ${
@@ -734,87 +684,83 @@ export default function CreateStudentPage() {
                   )}
                 </div>
 
-<<<<<<< HEAD
+                {/* Fingerprint Registration Section - Only show after face is enrolled */}
                 {faceEnrolled && (
                   <div className="text-center py-8 bg-[#F8FAFC] rounded-lg">
-                    <div className="w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-4 bg-green-100">
-                      <span className="text-4xl">✅</span>
+                    <div
+                      className={`w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-4 ${
+                        fingerprintEnrolled
+                          ? "bg-green-100"
+                          : fingerprintStatus === "scanning"
+                          ? "bg-yellow-100"
+                          : fingerprintStatus === "error"
+                          ? "bg-red-100"
+                          : "bg-[#EBF5FF]"
+                      }`}
+                    >
+                      {fingerprintStatus === "scanning" ? (
+                        <span className="text-4xl animate-pulse">⏳</span>
+                      ) : fingerprintStatus === "success" ||
+                        fingerprintEnrolled ? (
+                        <span className="text-4xl">✅</span>
+                      ) : fingerprintStatus === "error" ? (
+                        <span className="text-4xl">❌</span>
+                      ) : (
+                        <span className="text-4xl">👆</span>
+                      )}
                     </div>
                     <p className="text-black font-medium mb-2">
-                      Fingerprint Registration
+                      Fingerprint Registration (Slot ID: {fingerprintSlotId})
                     </p>
-                    <p className="text-[#64748B] mb-4">
-                      {fingerprintEnrolled
-                        ? "Fingerprint enrolled successfully!"
-                        : "Scan student fingerprint for enrollment"}
-                    </p>
+
+                    {fingerprintMessage ? (
+                      <div className="mb-4 p-4 bg-white rounded-lg border border-[#E2E8F0] max-h-48 overflow-y-auto">
+                        <pre className="text-left text-sm text-[#334155] whitespace-pre-wrap font-mono">
+                          {fingerprintMessage}
+                        </pre>
+                      </div>
+                    ) : (
+                      <p className="text-[#64748B] mb-4">
+                        {fingerprintEnrolled
+                          ? "Fingerprint enrolled successfully!"
+                          : "Scan student fingerprint (Optional)"}
+                      </p>
+                    )}
+
                     {!fingerprintEnrolled && (
                       <Button
                         onClick={handleScanFingerprint}
-                        disabled={isProcessing}
+                        disabled={isProcessing || fingerprintStatus === "scanning"}
                         className="bg-[#3B82F6] hover:bg-[#2563EB] text-white"
                       >
-                        {isProcessing ? "Processing..." : "Scan Fingerprint"}
+                        {fingerprintStatus === "scanning"
+                          ? "Scanning..."
+                          : "Scan Fingerprint"}
                       </Button>
                     )}
                   </div>
                 )}
-=======
-                <div className="text-center py-8 bg-[#F8FAFC] rounded-lg">
-                  <div className={`w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-4 ${
-                    fingerprintEnrolled ? "bg-green-100" : fingerprintStatus === "scanning" ? "bg-yellow-100" : fingerprintStatus === "error" ? "bg-red-100" : "bg-[#EBF5FF]"
-                  }`}>
-                    {fingerprintStatus === "scanning" ? (
-                      <span className="text-4xl animate-pulse">⏳</span>
-                    ) : fingerprintStatus === "success" || fingerprintEnrolled ? (
-                      <span className="text-4xl">✅</span>
-                    ) : fingerprintStatus === "error" ? (
-                      <span className="text-4xl">❌</span>
-                    ) : (
-                      <span className="text-4xl">👆</span>
-                    )}
-                  </div>
-                  <p className="text-black font-medium mb-2">Fingerprint Registration (Slot ID: {fingerprintSlotId})</p>
-                  
-                  {fingerprintMessage ? (
-                    <div className="mb-4 p-4 bg-white rounded-lg border border-[#E2E8F0] max-h-48 overflow-y-auto">
-                      <pre className="text-left text-sm text-[#334155] whitespace-pre-wrap font-mono">
-                        {fingerprintMessage}
-                      </pre>
-                    </div>
-                  ) : (
-                    <p className="text-[#64748B] mb-4">
-                      {fingerprintEnrolled ? "Fingerprint enrolled successfully!" : "Scan student fingerprint (Optional)"}
-                    </p>
-                  )}
-                  
-                  {!fingerprintEnrolled && (
-                    <Button 
-                      onClick={handleScanFingerprint}
-                      disabled={isProcessing || fingerprintStatus === "scanning"}
-                      className="bg-[#3B82F6] hover:bg-[#2563EB] text-white"
-                    >
-                      {fingerprintStatus === "scanning" ? "Scanning..." : "Scan Fingerprint"}
-                    </Button>
-                  )}
-                </div>
->>>>>>> origin/durva
 
-                <div className="flex justify-end gap-4">
+                {/* Complete Button */}
+                {faceEnrolled && (
                   <Button
-                    onClick={() => setStep(1)}
-                    className="bg-[#F9FAFB] text-black border border-[#E2E8F0] hover:bg-[#F1F5F9]"
-                  >
-                    Back
-                  </Button>
-                  <Button
-                    onClick={handleCreateStudent}
+                    onClick={handleComplete}
                     disabled={isProcessing}
-                    className="bg-[#3B82F6] hover:bg-[#2563EB] text-white"
+                    className="w-full bg-green-600 hover:bg-green-700 text-white"
                   >
-                    {isProcessing ? "Processing..." : "Create Student"}
+                    {isProcessing ? "Processing..." : "Complete Registration"}
                   </Button>
-                </div>
+                )}
+
+                {/* Back Button */}
+                <Button
+                  onClick={() => setStep(1)}
+                  variant="outline"
+                  className="w-full"
+                  disabled={isProcessing}
+                >
+                  Back to Student Info
+                </Button>
               </div>
             )}
           </CardContent>

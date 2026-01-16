@@ -2,7 +2,7 @@
  * Type definitions for the authentication system
  */
 
-export type UserRole = "STUDENT" | "FACULTY" | "FACULTY_PENDING" | "ADMIN";
+export type UserRole = "STUDENT" | "FACULTY" | "ADMIN";
 
 export interface UserMetadata {
   role?: UserRole;

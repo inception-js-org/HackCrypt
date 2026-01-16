@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Validate role if provided
-    const validRoles: UserRole[] = ["STUDENT", "FACULTY", "FACULTY_PENDING", "ADMIN"];
+    const validRoles: UserRole[] = ["STUDENT", "FACULTY", "ADMIN"];
     if (role && !validRoles.includes(role)) {
       console.error("❌ [API] Invalid role:", role);
       return NextResponse.json(

@@ -1,112 +1,135 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
+from typing import Optional
 import serial
 import serial.tools.list_ports
-import random
 import time
-from typing import Optional
 
 router = APIRouter()
 
-# ============ SERIAL CONFIG ============
-SERIAL_PORT = "COM5"  # Change this to your Arduino's COM port
-BAUD_RATE = 9600
-serial_connection = None
+# Serial connection settings
+BAUD_RATE = 57600
+TIMEOUT = 10
 
-def get_serial_connection():
-    global serial_connection
-    if serial_connection is None or not serial_connection.is_open:
-        try:
-            serial_connection = serial.Serial(SERIAL_PORT, BAUD_RATE, timeout=2)
-            print(f"Serial port {SERIAL_PORT} opened successfully")
-            # Wait for Arduino to finish resetting (Arduino resets on serial connection)
-            time.sleep(3)
-            # Clear any startup messages
-            serial_connection.reset_input_buffer()
-            serial_connection.reset_output_buffer()
-        except Exception as e:
-            print(f"Failed to open serial port: {e}")
-            return None
-    return serial_connection
+class EnrollRequest(BaseModel):
+    studentId: int
 
-# ============ MODELS ============
-class FingerprintEnrollRequest(BaseModel):
-    studentId: int | None = None
-
-class FingerprintResponse(BaseModel):
+class IdentifyResponse(BaseModel):
     success: bool
-    studentId: int | None = None
-    message: str | None = None
-    error: str | None = None
+    fingerprintId: Optional[str] = None
+    message: str
 
-# ============ ENDPOINTS ============
-@router.post("/enroll", response_model=FingerprintResponse)
-def fingerprint_enroll(request: FingerprintEnrollRequest = None):
-    """Enroll a fingerprint via Arduino sensor"""
-    
-    student_id = request.studentId if request and request.studentId else random.randint(1, 127)
-    
-    ser = get_serial_connection()
-    if ser is None:
-        raise HTTPException(status_code=500, detail="Failed to connect to fingerprint sensor")
-    
-    try:
-        command = f"FP_ENROLL {student_id}\n"
-        # Clear buffers
-        try:
-            ser.reset_input_buffer()
-            ser.reset_output_buffer()
-        except Exception:
-            pass
-        
-        # Send command
-        ser.write(command.encode())
-        ser.flush()
-        print(f"Sent to Arduino: {command}")
+def get_arduino_port():
+    """Find Arduino port automatically"""
+    ports = serial.tools.list_ports.comports()
+    for port in ports:
+        if "Arduino" in port.description or "CH340" in port.description or "USB" in port.description:
+            return port.device
+    return None
 
-        # Read Arduino responses for up to 30 seconds (enrollment takes time)
-        resp_lines = []
-        start = time.time()
-        timeout = 30.0
-        success = False
-        
-        while time.time() - start < timeout:
-            if ser.in_waiting > 0:
-                line = ser.readline()
-                try:
-                    decoded = line.decode(errors="ignore").strip()
-                except Exception:
-                    decoded = str(line)
-                
-                if decoded:
-                    print(f"Arduino: {decoded}")
-                    resp_lines.append(decoded)
-                    
-                    # Check for success or failure
-                    if "SUCCESS" in decoded.upper():
-                        success = True
-                        break
-                    elif "FAILED" in decoded.upper():
-                        success = False
-                        break
-            else:
-                time.sleep(0.1)
-
-        message = "\n".join(resp_lines) if resp_lines else "Fingerprint enrollment started"
-        
-        return FingerprintResponse(
-            success=success or len(resp_lines) > 0,
-            studentId=student_id,
-            message=message,
-            error=None if success else "Check Arduino connection"
-        )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+def send_command(ser, command: str, wait_time: float = 0.5) -> str:
+    """Send command to Arduino and get response"""
+    ser.write(f"{command}\n".encode())
+    time.sleep(wait_time)
+    response = ""
+    while ser.in_waiting:
+        response += ser.read(ser.in_waiting).decode()
+        time.sleep(0.1)
+    return response.strip()
 
 @router.get("/ports")
-def list_serial_ports():
+async def list_ports():
     """List available serial ports"""
     ports = serial.tools.list_ports.comports()
     return {
         "ports": [{"device": p.device, "description": p.description} for p in ports]
     }
+
+@router.post("/enroll")
+async def enroll_fingerprint(request: EnrollRequest):
+    """Enroll a new fingerprint"""
+    port = get_arduino_port()
+    if not port:
+        raise HTTPException(status_code=500, detail="Arduino not found")
+    
+    try:
+        ser = serial.Serial(port, BAUD_RATE, timeout=TIMEOUT)
+        time.sleep(2)  # Wait for Arduino to initialize
+        
+        # Send enroll command with slot ID
+        slot_id = ((request.studentId - 1) % 127) + 1
+        response = send_command(ser, f"ENROLL:{slot_id}", wait_time=15)
+        
+        ser.close()
+        
+        if "SUCCESS" in response or "stored" in response.lower():
+            return {
+                "success": True,
+                "fingerprintId": f"FP_{slot_id}",
+                "message": response
+            }
+        else:
+            return {
+                "success": False,
+                "message": response or "Enrollment failed"
+            }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/identify")
+async def identify_fingerprint():
+    """Identify a fingerprint"""
+    port = get_arduino_port()
+    if not port:
+        return IdentifyResponse(success=False, message="Arduino not connected")
+    
+    try:
+        ser = serial.Serial(port, BAUD_RATE, timeout=TIMEOUT)
+        time.sleep(0.5)
+        
+        # Send identify command
+        response = send_command(ser, "IDENTIFY", wait_time=5)
+        
+        ser.close()
+        
+        # Parse response for fingerprint ID
+        if "FOUND:" in response:
+            # Extract ID from response like "FOUND:5"
+            parts = response.split("FOUND:")
+            if len(parts) > 1:
+                fp_id = parts[1].split()[0].strip()
+                return IdentifyResponse(
+                    success=True,
+                    fingerprintId=f"FP_{fp_id}",
+                    message="Fingerprint identified"
+                )
+        
+        return IdentifyResponse(
+            success=False,
+            message=response or "No fingerprint detected"
+        )
+    except Exception as e:
+        return IdentifyResponse(success=False, message=str(e))
+
+@router.post("/verify")
+async def verify_fingerprint(student_id: int):
+    """Verify a specific student's fingerprint"""
+    port = get_arduino_port()
+    if not port:
+        raise HTTPException(status_code=500, detail="Arduino not found")
+    
+    try:
+        ser = serial.Serial(port, BAUD_RATE, timeout=TIMEOUT)
+        time.sleep(0.5)
+        
+        slot_id = ((student_id - 1) % 127) + 1
+        response = send_command(ser, f"VERIFY:{slot_id}", wait_time=5)
+        
+        ser.close()
+        
+        if "MATCH" in response.upper():
+            return {"success": True, "verified": True, "message": "Fingerprint verified"}
+        else:
+            return {"success": True, "verified": False, "message": response}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
