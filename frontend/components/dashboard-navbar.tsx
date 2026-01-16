@@ -1,16 +1,18 @@
 "use client"
 
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { cn } from "@/lib/utils"
+import { useAuth } from "@/contexts/auth-context"
 
 interface NavItem {
   label: string
@@ -23,13 +25,25 @@ interface DashboardNavbarProps {
   userName?: string
 }
 
-export function DashboardNavbar({ role, navItems, userName = "John Doe" }: DashboardNavbarProps) {
+export function DashboardNavbar({ role, navItems, userName = "User" }: DashboardNavbarProps) {
   const pathname = usePathname()
-  const initials = userName
+  const router = useRouter()
+  const { user, logout } = useAuth()
+  
+  // Use the actual user data if available
+  const displayName = user?.name || userName
+  const userEmail = user?.email || ""
+  
+  const initials = displayName
     .split(" ")
     .map((n) => n[0])
     .join("")
     .toUpperCase()
+
+  const handleLogout = async () => {
+    await logout()
+    router.push("/")
+  }
 
   return (
     <nav className="bg-white border-b border-[#E2E8F0] px-6 py-4">
@@ -62,13 +76,20 @@ export function DashboardNavbar({ role, navItems, userName = "John Doe" }: Dashb
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button className="flex items-center gap-3 hover:opacity-80 transition-opacity">
-              <span className="text-[#64748B] text-sm hidden sm:block">{userName}</span>
+              <span className="text-[#64748B] text-sm hidden sm:block">{displayName}</span>
               <Avatar className="h-10 w-10 bg-[#3B82F6]">
                 <AvatarFallback className="bg-[#3B82F6] text-white font-medium">{initials}</AvatarFallback>
               </Avatar>
             </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-48">
+          <DropdownMenuContent align="end" className="w-56">
+            <DropdownMenuLabel>
+              <div className="flex flex-col space-y-1">
+                <p className="text-sm font-medium leading-none">{displayName}</p>
+                <p className="text-xs leading-none text-muted-foreground">{userEmail}</p>
+              </div>
+            </DropdownMenuLabel>
+            <DropdownMenuSeparator />
             <DropdownMenuItem asChild>
               <Link href={`/${role}/inbox`} className="cursor-pointer">
                 Inbox
@@ -90,10 +111,8 @@ export function DashboardNavbar({ role, navItems, userName = "John Doe" }: Dashb
               </Link>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem asChild>
-              <Link href="/login" className="cursor-pointer text-red-600">
-                Logout
-              </Link>
+            <DropdownMenuItem onClick={handleLogout} className="cursor-pointer text-red-600">
+              Logout
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

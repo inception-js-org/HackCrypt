@@ -2,6 +2,7 @@
 
 import { AnimatedBackground } from "@/components/animated-background"
 import { LandingNavbar } from "@/components/landing-navbar"
+import SyncUserOnLoad from "@/components/SyncUserOnLoad"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { useAuth } from "@/contexts/auth-context"
@@ -11,6 +12,7 @@ export default function LandingPage() {
 
   return (
     <main className="min-h-screen bg-[#3B82F6] relative overflow-hidden">
+      <SyncUserOnLoad />
       <AnimatedBackground />
       <LandingNavbar />
 

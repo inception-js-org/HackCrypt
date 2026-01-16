@@ -13,16 +13,36 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { useAuth } from "@/contexts/auth-context"
 
-const roleNavItems = {
+const roleNavItems: Record<string, { label: string; href: string }[]> = {
+  STUDENT: [
+    { label: "Timetable", href: "/student/timetable" },
+    { label: "Analytics", href: "/student/analytics" },
+    { label: "Grievances", href: "/student/grievances" },
+  ],
   student: [
     { label: "Timetable", href: "/student/timetable" },
     { label: "Analytics", href: "/student/analytics" },
     { label: "Grievances", href: "/student/grievances" },
   ],
+  FACULTY: [
+    { label: "Sessions", href: "/teacher/sessions" },
+    { label: "Analytics", href: "/teacher/analytics" },
+    { label: "Grievances", href: "/teacher/grievances" },
+  ],
+  FACULTY_PENDING: [
+    { label: "Sessions", href: "/teacher/sessions" },
+    { label: "Analytics", href: "/teacher/analytics" },
+    { label: "Grievances", href: "/teacher/grievances" },
+  ],
   teacher: [
     { label: "Sessions", href: "/teacher/sessions" },
     { label: "Analytics", href: "/teacher/analytics" },
     { label: "Grievances", href: "/teacher/grievances" },
+  ],
+  ADMIN: [
+    { label: "Create Student", href: "/admin/create-student" },
+    { label: "Create Teacher", href: "/admin/create-teacher" },
+    { label: "Create Class", href: "/admin/create-class" },
   ],
   admin: [
     { label: "Create Student", href: "/admin/create-student" },
@@ -47,7 +67,7 @@ export function LandingNavbar() {
       .join("")
       .toUpperCase() || "U"
 
-  const navItems = user ? roleNavItems[user.role] : []
+  const navItems = user?.role ? roleNavItems[user.role] || [] : []
 
   return (
     <nav className="absolute top-0 left-0 right-0 z-20 flex items-center justify-between px-8 py-6">
@@ -131,7 +151,7 @@ export function LandingNavbar() {
           </DropdownMenuContent>
         </DropdownMenu>
       ) : (
-        <Link href="/login">
+        <Link href="/login/choose-role">
           <Button className="bg-black text-white hover:bg-black/80 px-6">Get Started</Button>
         </Link>
       )}
