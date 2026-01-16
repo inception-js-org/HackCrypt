@@ -9,7 +9,7 @@
 
 # production
 /build
-
+.sql
 # debug
 npm-debug.log*
 yarn-debug.log*
