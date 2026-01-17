@@ -96,10 +96,10 @@ while True:
                         label = f"{match['id']} ({score:.2f})"
                         color = (0, 255, 0)  # Green for matched
                     else:
-                        label = f"Unknown ({score:.2f})"
+                        label = f"Student ({score:.2f})"
                         color = (0, 0, 255)  # Red for unknown
                 else:
-                    label = "Unknown"
+                    label = "Student"
                     color = (0, 0, 255)
 
                 # Store this face's data

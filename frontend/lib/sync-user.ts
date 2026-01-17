@@ -2,7 +2,7 @@ import db from "../db/index";
 import { users, students } from "@/db/schema";
 import { eq } from "drizzle-orm";
 
-export type UserRole = "STUDENT" | "FACULTY" | "FACULTY_PENDING" | "ADMIN";
+export type UserRole = "STUDENT" | "FACULTY" | "ADMIN";
 
 /**
  * Syncs a Clerk user to the database using an upsert pattern.

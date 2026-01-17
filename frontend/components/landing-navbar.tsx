@@ -25,17 +25,17 @@ const roleNavItems: Record<string, { label: string; href: string }[]> = {
     { label: "Grievances", href: "/student/grievances" },
   ],
   FACULTY: [
-    { label: "Sessions", href: "/teacher/sessions" },
+    { label: "Sessions", href: "/teacher/timetable" },
     { label: "Analytics", href: "/teacher/analytics" },
     { label: "Grievances", href: "/teacher/grievances" },
   ],
   FACULTY_PENDING: [
-    { label: "Sessions", href: "/teacher/sessions" },
+    { label: "Sessions", href: "/teacher/timetable" },
     { label: "Analytics", href: "/teacher/analytics" },
     { label: "Grievances", href: "/teacher/grievances" },
   ],
   teacher: [
-    { label: "Sessions", href: "/teacher/sessions" },
+    { label: "Sessions", href: "/teacher/timetable" },
     { label: "Analytics", href: "/teacher/analytics" },
     { label: "Grievances", href: "/teacher/grievances" },
   ],

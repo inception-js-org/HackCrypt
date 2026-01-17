@@ -1,259 +1,454 @@
-"use client"
+"use client";
 
-import { useState, useRef } from "react"
-import { PageContainer } from "@/components/page-container"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { useToast } from "@/hooks/use-toast"
+import { useState, useRef, useEffect } from "react";
+import { PageContainer } from "@/components/page-container";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { useToast } from "@/hooks/use-toast";
+import { User, Camera, Fingerprint, CheckCircle, Upload } from "lucide-react";
 
-const recentStudents = [
-  { id: "STU-2026-001", name: "Alex Student", class: "12-A", email: "alex@school.edu" },
-  { id: "STU-2026-002", name: "Jane Doe", class: "11-B", email: "jane@school.edu" },
-  { id: "STU-2026-003", name: "Mike Johnson", class: "10-A", email: "mike@school.edu" },
-]
+const steps = [
+  {
+    id: 1,
+    title: "Welcome! Let's Get to Know You",
+    subtitle: "Personal Information",
+    description:
+      "This will help us to make the registration seamless. This information will also help us to stay connected with you!",
+    icon: User,
+  },
+  {
+    id: 2,
+    title: "Let's Capture Your Face",
+    subtitle: "Face Recognition Setup",
+    description:
+      "Position the student's face within the frame. This will be used for automated attendance recognition.",
+    icon: Camera,
+  },
+  {
+    id: 3,
+    title: "Fingerprint Registration",
+    subtitle: "Biometric Setup",
+    description: "Place the student's finger on the scanner. This adds an extra layer of verification for attendance.",
+    icon: Fingerprint,
+  },
+  {
+    id: 4,
+    title: "All Set! Registration Complete",
+    subtitle: "Review & Confirm",
+    description: "Review all the information before finalizing the student registration.",
+    icon: CheckCircle,
+  },
+];
 
 interface FormData {
-  firstName: string
-  lastName: string
-  email: string
-  phone: string
-  class: string
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  class: string;
 }
 
 interface FormErrors {
-  firstName?: string
-  lastName?: string
-  email?: string
-  phone?: string
-  class?: string
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  phone?: string;
+  class?: string;
 }
 
 export default function CreateStudentPage() {
-  const [step, setStep] = useState(1)
+  const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState<FormData>({
     firstName: "",
     lastName: "",
     email: "",
     phone: "",
     class: "",
-  })
-  const [errors, setErrors] = useState<FormErrors>({})
-  const [studentDbId, setStudentDbId] = useState<string>("")
-  const [faceEnrolled, setFaceEnrolled] = useState(false)
-  const [fingerprintEnrolled, setFingerprintEnrolled] = useState(false)
-  const [isProcessing, setIsProcessing] = useState(false)
-  const fileInputRef = useRef<HTMLInputElement>(null)
-  const { toast } = useToast()
+  });
+  const [errors, setErrors] = useState<FormErrors>({});
+  const [studentDbId, setStudentDbId] = useState<string>("");
+  const [faceEnrolled, setFaceEnrolled] = useState(false);
+  const [fingerprintEnrolled, setFingerprintEnrolled] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [processingStatus, setProcessingStatus] = useState<string>("");
+  const [processingSteps, setProcessingSteps] = useState<number>(0);
+  const [showWebcam, setShowWebcam] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { toast } = useToast();
+
+  const [fingerprintStatus, setFingerprintStatus] = useState<"idle" | "scanning" | "success" | "error">("idle");
+  const [fingerprintMessage, setFingerprintMessage] = useState("");
+  const [fingerprintSlotId, setFingerprintSlotId] = useState(0);
+  
+  // ✅ Add state for recent students
+  const [recentStudents, setRecentStudents] = useState<any[]>([]);
+
+  // ✅ Fetch recent students on component mount
+  useEffect(() => {
+    const fetchRecentStudents = async () => {
+      try {
+        const response = await fetch('/api/students/recent');
+        if (response.ok) {
+          const data = await response.json();
+          setRecentStudents(data.students || []);
+        }
+      } catch (error) {
+        console.error('Error fetching recent students:', error);
+      }
+    };
+
+    fetchRecentStudents();
+  }, []);
+
+  // ✅ Refresh recent students after completing registration
+  const refreshRecentStudents = async () => {
+    try {
+      const response = await fetch('/api/students/recent');
+      if (response.ok) {
+        const data = await response.json();
+        setRecentStudents(data.students || []);
+      }
+    } catch (error) {
+      console.error('Error refreshing recent students:', error);
+    }
+  };
+  const [fingerprintStep, setFingerprintStep] = useState(0);
+
+  const mapToSlot = (dbId: number) => {
+    return ((dbId - 1) % 127) + 1;
+  };
+
+  const nextStep = () => {
+    if (currentStep < 4) {
+      setCurrentStep(currentStep + 1);
+    }
+  };
+
+  const prevStep = () => {
+    if (currentStep > 1) {
+      setCurrentStep(currentStep - 1);
+    }
+  };
 
   const validateForm = (): boolean => {
-    const newErrors: FormErrors = {}
+    const newErrors: FormErrors = {};
 
     if (!formData.firstName.trim()) {
-      newErrors.firstName = "First name is required"
+      newErrors.firstName = "First name is required";
     } else if (formData.firstName.trim().length < 2) {
-      newErrors.firstName = "First name must be at least 2 characters"
+      newErrors.firstName = "First name must be at least 2 characters";
     } else if (!/^[a-zA-Z\s]+$/.test(formData.firstName)) {
-      newErrors.firstName = "First name can only contain letters"
+      newErrors.firstName = "First name can only contain letters";
     }
 
     if (!formData.lastName.trim()) {
-      newErrors.lastName = "Last name is required"
+      newErrors.lastName = "Last name is required";
     } else if (formData.lastName.trim().length < 2) {
-      newErrors.lastName = "Last name must be at least 2 characters"
+      newErrors.lastName = "Last name must be at least 2 characters";
     } else if (!/^[a-zA-Z\s]+$/.test(formData.lastName)) {
-      newErrors.lastName = "Last name can only contain letters"
+      newErrors.lastName = "Last name can only contain letters";
     }
 
     if (!formData.email.trim()) {
-      newErrors.email = "Email is required"
+      newErrors.email = "Email is required";
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-      newErrors.email = "Please enter a valid email address"
+      newErrors.email = "Please enter a valid email address";
     }
 
     if (!formData.phone.trim()) {
-      newErrors.phone = "Phone number is required"
-    } else if (!/^\+?[1-9]\d{1,14}$/.test(formData.phone.replace(/[\s-]/g, ""))) {
-      newErrors.phone = "Please enter a valid phone number"
+      newErrors.phone = "Phone number is required";
+    } else if (
+      !/^\+?[1-9]\d{1,14}$/.test(formData.phone.replace(/[\s-]/g, ""))
+    ) {
+      newErrors.phone = "Please enter a valid phone number";
     }
 
     if (!formData.class) {
-      newErrors.class = "Class selection is required"
+      newErrors.class = "Class selection is required";
     }
 
-    setErrors(newErrors)
-    return Object.keys(newErrors).length === 0
-  }
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
 
   const handleInputChange = (field: keyof FormData, value: string) => {
-    setFormData((prev) => ({ ...prev, [field]: value }))
+    setFormData((prev) => ({ ...prev, [field]: value }));
     if (errors[field]) {
-      setErrors((prev) => ({ ...prev, [field]: undefined }))
+      setErrors((prev) => ({ ...prev, [field]: undefined }));
     }
-  }
+  };
 
   const handleNext = async () => {
     if (validateForm()) {
       try {
-        const response = await fetch('/api/students', {
-          method: 'POST',
+        const response = await fetch("/api/students", {
+          method: "POST",
           headers: {
-            'Content-Type': 'application/json',
+            "Content-Type": "application/json",
           },
           body: JSON.stringify(formData),
-        })
+        });
 
         if (!response.ok) {
-          throw new Error('Failed to create student')
+          throw new Error("Failed to create student");
         }
 
-        const data = await response.json()
-        setStudentDbId(data.id)
-        setStep(2)
-        
+        const data = await response.json();
+        setStudentDbId(data.id);
+        const slotId = mapToSlot(Number(data.id));
+        setFingerprintSlotId(slotId);
+        nextStep();
+
         toast({
           title: "Success",
-          description: "Student information saved. Please proceed with biometric enrollment.",
-        })
+          description:
+            "Student information saved. Please proceed with biometric enrollment.",
+        });
       } catch (error) {
         toast({
           title: "Error",
           description: "Failed to save student information. Please try again.",
           variant: "destructive",
-        })
+        });
       }
     }
-  }
+  };
 
   const handleCaptureFace = async () => {
     if (!studentDbId) {
       toast({
         title: "Error",
-        description: "Student ID not found. Please go back and save student information first.",
+        description:
+          "Student ID not found. Please go back and save student information first.",
         variant: "destructive",
-      })
-      return
+      });
+      return;
     }
 
-    setIsProcessing(true)
-    try {
-      const faceId = studentDbId
-      
-      const response = await fetch('http://localhost:8000/enroll/webcam', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          student_id: faceId,
-        }),
-      })
+    console.log("🎥 Starting face capture for student:", studentDbId);
 
-      if (!response.ok) {
-        throw new Error('Face enrollment failed')
+    setShowWebcam(true);
+    setIsProcessing(true);
+    setProcessingSteps(0);
+    setProcessingStatus(""); // Don't show overlay status while webcam is active
+
+    try {
+      const enrollFaceId = studentDbId;
+
+      // Start the webcam enrollment session
+      console.log("📡 Starting webcam enrollment session...");
+      await fetch(`http://localhost:8000/enroll/webcam/start?student_id=${enrollFaceId}`, {
+        method: "POST",
+      });
+
+      // Wait a moment for webcam to initialize
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+
+      // Poll for enrollment completion
+      let completed = false;
+      let attempts = 0;
+      const maxAttempts = 60; // 60 seconds max
+
+      console.log("⏳ Waiting for enrollment to complete...");
+
+      while (!completed && attempts < maxAttempts) {
+        await new Promise((resolve) => setTimeout(resolve, 1000)); // Wait 1 second
+
+        const statusResponse = await fetch(
+          `http://localhost:8000/enroll/webcam/status?student_id=${studentDbId}`
+        );
+        const status = await statusResponse.json();
+
+        console.log(`Enrollment status (attempt ${attempts + 1}):`, status);
+
+        if (status.completed) {
+          completed = true;
+          console.log("✅ Enrollment completed!");
+          break;
+        }
+
+        attempts++;
       }
 
+      if (!completed) {
+        throw new Error("Enrollment timeout. Please try again.");
+      }
+
+      // Hide webcam and show processing overlay
+      setShowWebcam(false);
+      setProcessingStatus("✨ Finalizing enrollment...");
+      
+      // Now animate the processing steps
+      setTimeout(() => setProcessingSteps(1), 500);
+      setTimeout(() => setProcessingSteps(2), 1500);
+      setTimeout(() => setProcessingSteps(3), 2500);
+
+      // Finalize enrollment
+      console.log("💾 Finalizing enrollment in Pinecone...");
+      const response = await fetch(
+        `http://localhost:8000/enroll/webcam?student_id=${studentDbId}`,
+        {
+          method: "POST",
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error("❌ Face enrollment error:", errorData);
+        throw new Error(errorData.detail || "Face enrollment failed");
+      }
+
+      const data = await response.json();
+      console.log("✅ Enrollment response:", data);
+
+      // ✅ Extract face_id from response (should be same as student_id)
+      const extractedFaceId = data.face_id || data.student_id || studentDbId;
+      
+      setProcessingSteps(4);
+      setProcessingStatus("💾 Saving to database...");
+      
       // Update student record with face ID
-      await fetch('/api/students/update-biometric', {
-        method: 'POST',
+      console.log("📝 Updating database with face_id:", extractedFaceId);
+      const dbResponse = await fetch("/api/students/update-biometric", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          studentDbId,
-          faceId,
+          studentDbId: parseInt(studentDbId),  // ✅ Convert to number
+          faceId: extractedFaceId,  // ✅ Use extracted face_id
         }),
-      })
+      });
 
-      setFaceEnrolled(true)
-      
+      const dbResult = await dbResponse.json();
+      console.log("✅ Database update result:", dbResult);
+
+      if (!dbResponse.ok) {
+        throw new Error(dbResult.error || "Failed to update database");
+      }
+
+      setFaceEnrolled(true);
+
       toast({
         title: "Success",
-        description: "Face captured and enrolled successfully!",
-      })
+        description: `Face captured successfully! Face ID: ${extractedFaceId}`,
+      });
     } catch (error) {
+      console.error("❌ Face capture error:", error);
       toast({
         title: "Error",
-        description: "Failed to capture face. Please try again.",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Failed to capture face. Please try again.",
         variant: "destructive",
-      })
+      });
     } finally {
-      setIsProcessing(false)
+      setIsProcessing(false);
+      setShowWebcam(false);
+      setProcessingStatus("");
+      setProcessingSteps(0);
     }
-  }
+  };
 
-  const handleUploadPhoto = async (event: React.ChangeEvent<HTMLInputElement>) => {
+
+  const handleUploadPhoto = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
     if (!studentDbId) {
       toast({
         title: "Error",
-        description: "Student ID not found. Please go back and save student information first.",
+        description:
+          "Student ID not found. Please go back and save student information first.",
         variant: "destructive",
-      })
-      return
+      });
+      return;
     }
 
-    const file = event.target.files?.[0]
-    if (!file) return
+    const file = event.target.files?.[0];
+    if (!file) return;
 
-    if (!file.type.startsWith('image/')) {
+    if (!file.type.startsWith("image/")) {
       toast({
         title: "Error",
         description: "Please upload a valid image file (JPEG/PNG).",
         variant: "destructive",
-      })
-      return
+      });
+      return;
     }
 
-    setIsProcessing(true)
+    setIsProcessing(true);
+    setProcessingSteps(0);
+    setProcessingStatus("📤 Uploading photo...");
+    
+    // Animate steps progressively - much slower timing
+    setTimeout(() => setProcessingSteps(1), 1500);
+    setTimeout(() => setProcessingSteps(2), 3500);
+    setTimeout(() => setProcessingSteps(3), 5500);
+    
     try {
-      const faceId = studentDbId
-      
-      const formDataObj = new FormData()
-      formDataObj.append('image', file)
-      formDataObj.append('student_id', faceId)
+      const uploadFaceId = studentDbId;
 
-      const response = await fetch('http://localhost:8000/enroll/', {
-        method: 'POST',
+      const formDataObj = new FormData();
+      formDataObj.append("image", file);
+      formDataObj.append("student_id", uploadFaceId);
+
+      setProcessingStatus("🔍 Detecting face in photo...");
+      const response = await fetch("http://localhost:8000/enroll/", {
+        method: "POST",
         body: formDataObj,
-      })
+      });
 
       if (!response.ok) {
-        throw new Error('Face enrollment failed')
+        throw new Error("Face enrollment failed");
       }
 
+      setProcessingStatus("🧬 Extracting facial features...");
+      await new Promise((resolve) => setTimeout(resolve, 500));
+
+      setProcessingStatus("💾 Saving to database...");
       // Update student record with face ID
-      await fetch('/api/students/update-biometric', {
-        method: 'POST',
+      await fetch("/api/students/update-biometric", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
           studentDbId,
-          faceId,
+          faceId: uploadFaceId,
         }),
-      })
+      });
 
-      setFaceEnrolled(true)
-      
+      setFaceEnrolled(true);
+
       toast({
         title: "Success",
         description: "Photo uploaded and face enrolled successfully!",
-      })
+      });
     } catch (error) {
       toast({
         title: "Error",
         description: "Failed to upload photo. Please try again.",
         variant: "destructive",
-      })
+      });
     } finally {
-      setIsProcessing(false)
+      setIsProcessing(false);
+      setProcessingStatus("");
+      setProcessingSteps(0);
       if (fileInputRef.current) {
-        fileInputRef.current.value = ''
+        fileInputRef.current.value = "";
       }
     }
-  }
+  };
 
   const handleScanFingerprint = async () => {
     if (!studentDbId) {
@@ -261,64 +456,113 @@ export default function CreateStudentPage() {
         title: "Error",
         description: "Student ID not found. Please go back and save student information first.",
         variant: "destructive",
-      })
-      return
+      });
+      return;
     }
 
+    setFingerprintStatus("scanning")
+    setFingerprintMessage("🔌 Connecting to sensor...")
+    setFingerprintStep(0)
     setIsProcessing(true)
+    setProcessingStatus("🔌 Connecting to sensor...")
+    setProcessingSteps(0)
+
+    // Simulate Arduino steps appearing progressively
+    setTimeout(() => {
+      setProcessingSteps(1)
+      setProcessingStatus(" Place finger")
+    }, 1500)
+    
+    setTimeout(() => {
+      setProcessingSteps(2)
+      setProcessingStatus(" Remove finger")
+    }, 5000)
+    
+    setTimeout(() => {
+      setProcessingSteps(3)
+      setProcessingStatus(" Place SAME finger again")
+    }, 7500)
+
     try {
-      const fingerprintId = studentDbId
-      
-      // TODO: Integrate with actual fingerprint scanner
-      // Simulating fingerprint scan
-      await new Promise(resolve => setTimeout(resolve, 2000))
-      
-      // Update student record with fingerprint ID
-      await fetch('/api/students/update-biometric', {
-        method: 'POST',
+      // Start enrollment request
+      const response = await fetch("http://localhost:8000/api/fingerprint/enroll", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          studentDbId,
-          fingerprintId,
-        }),
+        body: JSON.stringify({ studentId: fingerprintSlotId }),
       })
 
-      setFingerprintEnrolled(true)
-      
-      toast({
-        title: "Success",
-        description: "Fingerprint scanned and enrolled successfully!",
-      })
+      const data = await response.json()
+      console.log("📡 Fingerprint response:", data)
+
+      if (data.success) {
+        setFingerprintStatus("success")
+        setFingerprintStep(4)
+        setFingerprintMessage("🎉 Fingerprint enrolled successfully!")
+        setProcessingSteps(4)
+        setProcessingStatus("🎉 Fingerprint Enrollment SUCCESS")
+
+        await fetch('/api/students/update-biometric', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            studentDbId,
+            fingerprintId: String(fingerprintSlotId),
+          }),
+        })
+
+        setFingerprintEnrolled(true)
+
+        toast({
+          title: "Success",
+          description: "Fingerprint enrolled successfully!",
+        })
+        
+        // Clear overlay after success
+        setTimeout(() => {
+          setIsProcessing(false)
+          setProcessingStatus("")
+          setProcessingSteps(0)
+        }, 2000)
+      } else {
+        setFingerprintStatus("error")
+        setFingerprintStep(0)
+        setFingerprintMessage(data.error || data.message || "Enrollment failed. Please try again.")
+
+        toast({
+          title: "Error",
+          description: data.error || "Fingerprint enrollment failed.",
+          variant: "destructive",
+        })
+        setIsProcessing(false)
+        setProcessingStatus("")
+        setProcessingSteps(0)
+      }
     } catch (error) {
+      setFingerprintStatus("error")
+      setFingerprintStep(0)
+      setFingerprintMessage("❌ Failed to connect to fingerprint service.")
+
       toast({
         title: "Error",
-        description: "Failed to scan fingerprint. Please try again.",
+        description: "Failed to connect to fingerprint service.",
         variant: "destructive",
-      })
-    } finally {
+      });
       setIsProcessing(false)
+      setProcessingStatus("")
+      setProcessingSteps(0)
     }
-  }
+  };
 
-  const handleCreateStudent = async () => {
-    if (!faceEnrolled) {
-      toast({
-        title: "Warning",
-        description: "Please enroll face biometric before creating student.",
-        variant: "destructive",
-      })
-      return
-    }
+  const handleComplete = async () => {
+    setIsProcessing(true);
 
-    setIsProcessing(true)
     try {
-      // Send invitation email via Clerk
-      const response = await fetch('/api/students/send-invitation', {
-        method: 'POST',
+      const response = await fetch("/api/students/send-invitation", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
           studentDbId,
@@ -326,17 +570,20 @@ export default function CreateStudentPage() {
           firstName: formData.firstName,
           lastName: formData.lastName,
         }),
-      })
+      });
 
       if (!response.ok) {
-        throw new Error('Failed to send invitation')
+        throw new Error("Failed to send invitation");
       }
 
       toast({
         title: "Success",
         description: "Student created successfully! Invitation email sent.",
-      })
-      
+      });
+
+      // ✅ Refresh recent students list
+      await refreshRecentStudents();
+
       // Reset form
       setFormData({
         firstName: "",
@@ -344,218 +591,616 @@ export default function CreateStudentPage() {
         email: "",
         phone: "",
         class: "",
-      })
-      setStudentDbId("")
-      setFaceEnrolled(false)
-      setFingerprintEnrolled(false)
-      setStep(1)
+      });
+      setStudentDbId("");
+      setFaceEnrolled(false);
+      setFingerprintEnrolled(false);
+      setFingerprintStatus("idle");
+      setFingerprintMessage("");
+      setFingerprintSlotId(0);
+      setCurrentStep(1);
     } catch (error) {
       toast({
         title: "Error",
         description: "Failed to complete student creation. Please try again.",
         variant: "destructive",
-      })
+      });
     } finally {
-      setIsProcessing(false)
+      setIsProcessing(false);
     }
-  }
+  };
+
+  const currentStepData = steps[currentStep - 1];
+  const progressPercent = ((currentStep - 1) / (steps.length - 1)) * 100;
 
   return (
-    <PageContainer title="Create Student" description="Add a new student to the system">
-      <div className="grid lg:grid-cols-2 gap-8">
-        <Card className="border-0 shadow-lg">
-          <CardHeader className="bg-[#3B82F6] text-white rounded-t-lg">
-            <CardTitle>New Student Registration</CardTitle>
-          </CardHeader>
-          <CardContent className="pt-6">
-            {step === 1 && (
-              <form className="space-y-6">
-                <div className="grid md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="firstName" className="text-black">
-                      First Name <span className="text-red-500">*</span>
-                    </Label>
-                    <Input
-                      id="firstName"
-                      placeholder="Enter first name"
-                      value={formData.firstName}
-                      onChange={(e) => handleInputChange("firstName", e.target.value)}
-                      className={`border-[#E2E8F0] ${errors.firstName ? "border-red-500" : ""}`}
-                    />
-                    {errors.firstName && <p className="text-red-500 text-sm mt-1">{errors.firstName}</p>}
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="lastName" className="text-black">
-                      Last Name <span className="text-red-500">*</span>
-                    </Label>
-                    <Input
-                      id="lastName"
-                      placeholder="Enter last name"
-                      value={formData.lastName}
-                      onChange={(e) => handleInputChange("lastName", e.target.value)}
-                      className={`border-[#E2E8F0] ${errors.lastName ? "border-red-500" : ""}`}
-                    />
-                    {errors.lastName && <p className="text-red-500 text-sm mt-1">{errors.lastName}</p>}
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="email" className="text-black">
-                    Email <span className="text-red-500">*</span>
-                  </Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="student@school.edu"
-                    value={formData.email}
-                    onChange={(e) => handleInputChange("email", e.target.value)}
-                    className={`border-[#E2E8F0] ${errors.email ? "border-red-500" : ""}`}
-                  />
-                  {errors.email && <p className="text-red-500 text-sm mt-1">{errors.email}</p>}
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="phone" className="text-black">
-                    Phone Number <span className="text-red-500">*</span>
-                  </Label>
-                  <Input
-                    id="phone"
-                    type="tel"
-                    placeholder="+1 234 567 8900"
-                    value={formData.phone}
-                    onChange={(e) => handleInputChange("phone", e.target.value)}
-                    className={`border-[#E2E8F0] ${errors.phone ? "border-red-500" : ""}`}
-                  />
-                  {errors.phone && <p className="text-red-500 text-sm mt-1">{errors.phone}</p>}
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-black">Class <span className="text-red-500">*</span></Label>
-                  <Select value={formData.class} onValueChange={(value) => handleInputChange("class", value)}>
-                    <SelectTrigger className={`border-[#E2E8F0] ${errors.class ? "border-red-500" : ""}`}>
-                      <SelectValue placeholder="Select class" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="12-A">Class 12-A</SelectItem>
-                      <SelectItem value="12-B">Class 12-B</SelectItem>
-                      <SelectItem value="11-A">Class 11-A</SelectItem>
-                      <SelectItem value="11-B">Class 11-B</SelectItem>
-                      <SelectItem value="10-A">Class 10-A</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  {errors.class && <p className="text-red-500 text-sm mt-1">{errors.class}</p>}
-                </div>
-                <Button
-                  type="button"
-                  onClick={handleNext}
-                  className="w-full bg-[#3B82F6] hover:bg-[#2563EB] text-white"
-                >
-                  Next: Biometric Setup
-                </Button>
-              </form>
-            )}
-
-            {step === 2 && (
-              <div className="space-y-6">
-                <div className="text-center py-8 bg-[#F8FAFC] rounded-lg">
-                  <div className={`w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-4 ${
-                    faceEnrolled ? "bg-green-100" : "bg-[#EBF5FF]"
-                  }`}>
-                    <span className="text-4xl">{faceEnrolled ? "✅" : "📷"}</span>
-                  </div>
-                  <p className="text-black font-medium mb-2">Face Registration</p>
-                  <p className="text-[#64748B] mb-4">
-                    {faceEnrolled ? "Face enrolled successfully!" : "Capture student face for recognition"}
+    <PageContainer title="" description="">
+      <div className="min-h-[calc(100vh-120px)] flex flex-col">
+        <div className="flex-1 flex flex-col lg:flex-row gap-8 lg:gap-16 px-4 lg:px-12 py-8">
+          {/* Left Side - Step Info */}
+          <div className="lg:w-2/5 flex flex-col justify-center">
+            <p className="text-[#3B82F6] font-medium mb-2 tracking-wide">Step {currentStep}</p>
+            <h1 className="text-3xl lg:text-4xl font-bold text-black mb-4 leading-tight">{currentStepData.title}</h1>
+            <p className="text-[#64748B] text-lg leading-relaxed">{currentStepData.description}</p>
+            
+            {/* Recent Students Section - Only visible on desktop */}
+            <div className="hidden lg:block mt-8">
+              <h2 className="text-xl font-bold mb-4 text-black">Recent Students</h2>
+              <div className="space-y-3 max-h-64 overflow-y-auto">
+                {recentStudents.length > 0 ? (
+                  recentStudents.map((student) => (
+                    <div
+                      key={student.id}
+                      className="p-3 bg-[#F8FAFC] rounded-lg shadow-sm border border-[#E2E8F0]"
+                    >
+                      <p className="text-[#374151] font-semibold text-sm">
+                        {student.firstName} {student.lastName}
+                      </p>
+                      <p className="text-[#6B7280] text-xs">{student.email}</p>
+                      <p className="text-[#6B7280] text-xs">Class: {student.class}</p>
+                      <div className="mt-2 flex gap-2">
+                        {student.faceId && (
+                          <span className="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded">
+                            Face: ✓
+                          </span>
+                        )}
+                        {student.fingerprintId && (
+                          <span className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded">
+                            Fingerprint: ✓
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-[#6B7280] text-center py-4 text-sm">
+                    No recent students
                   </p>
-                  {!faceEnrolled && (
-                    <div className="flex gap-4 justify-center">
-                      <Button 
-                        onClick={handleCaptureFace}
-                        disabled={isProcessing}
-                        className="bg-[#3B82F6] hover:bg-[#2563EB] text-white"
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Right Side - Form Card */}
+          <div className="lg:w-3/5 flex items-center justify-center">
+            <Card className="w-full max-w-3xl bg-white shadow-xl border-0 rounded-2xl overflow-hidden">
+              <div className="bg-[#3B82F6] px-6 py-4">
+                <h2 className="text-white font-semibold text-lg">
+                  {formData.firstName ? `Hi, ${formData.firstName} ${formData.lastName}` : currentStepData.subtitle}
+                </h2>
+              </div>
+
+              <div className="p-6">
+                {currentStep === 1 && (
+                  <div className="space-y-5 animate-in fade-in duration-300">
+                    <div className="space-y-2">
+                      <Label className="text-[#64748B] text-sm">
+                        First Name <span className="text-red-500">*</span>
+                      </Label>
+                      <Input
+                        placeholder="Enter first name"
+                        className={`border-[#E2E8F0] h-12 rounded-lg focus:border-[#3B82F6] focus:ring-[#3B82F6] ${
+                          errors.firstName ? "border-red-500" : ""
+                        }`}
+                        value={formData.firstName}
+                        onChange={(e) => handleInputChange("firstName", e.target.value)}
+                      />
+                      {errors.firstName && (
+                        <p className="text-red-500 text-sm mt-1">{errors.firstName}</p>
+                      )}
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-[#64748B] text-sm">
+                        Last Name <span className="text-red-500">*</span>
+                      </Label>
+                      <Input
+                        placeholder="Enter last name"
+                        className={`border-[#E2E8F0] h-12 rounded-lg focus:border-[#3B82F6] focus:ring-[#3B82F6] ${
+                          errors.lastName ? "border-red-500" : ""
+                        }`}
+                        value={formData.lastName}
+                        onChange={(e) => handleInputChange("lastName", e.target.value)}
+                      />
+                      {errors.lastName && (
+                        <p className="text-red-500 text-sm mt-1">{errors.lastName}</p>
+                      )}
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-[#64748B] text-sm">
+                        Email <span className="text-red-500">*</span>
+                      </Label>
+                      <Input
+                        type="email"
+                        placeholder="student@school.edu"
+                        className={`border-[#E2E8F0] h-12 rounded-lg focus:border-[#3B82F6] focus:ring-[#3B82F6] ${
+                          errors.email ? "border-red-500" : ""
+                        }`}
+                        value={formData.email}
+                        onChange={(e) => handleInputChange("email", e.target.value)}
+                      />
+                      {errors.email && (
+                        <p className="text-red-500 text-sm mt-1">{errors.email}</p>
+                      )}
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-[#64748B] text-sm">
+                        Phone Number <span className="text-red-500">*</span>
+                      </Label>
+                      <Input
+                        type="tel"
+                        placeholder="+1 234 567 8900"
+                        className={`border-[#E2E8F0] h-12 rounded-lg focus:border-[#3B82F6] focus:ring-[#3B82F6] ${
+                          errors.phone ? "border-red-500" : ""
+                        }`}
+                        value={formData.phone}
+                        onChange={(e) => handleInputChange("phone", e.target.value)}
+                      />
+                      {errors.phone && (
+                        <p className="text-red-500 text-sm mt-1">{errors.phone}</p>
+                      )}
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-[#64748B] text-sm">
+                        Class <span className="text-red-500">*</span>
+                      </Label>
+                      <Select
+                        value={formData.class}
+                        onValueChange={(value) => handleInputChange("class", value)}
                       >
-                        {isProcessing ? "Processing..." : "Capture Face"}
-                      </Button>
-                      <Button 
-                        onClick={() => fileInputRef.current?.click()}
-                        disabled={isProcessing}
-                        className="bg-[#3B82F6] hover:bg-[#2563EB] text-white"
-                      >
-                        Upload Photo
-                      </Button>
+                        <SelectTrigger className={`border-[#E2E8F0] h-12 rounded-lg ${
+                          errors.class ? "border-red-500" : ""
+                        }`}>
+                          <SelectValue placeholder="Select class" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="12-A">Class 12-A</SelectItem>
+                          <SelectItem value="12-B">Class 12-B</SelectItem>
+                          <SelectItem value="11-A">Class 11-A</SelectItem>
+                          <SelectItem value="11-B">Class 11-B</SelectItem>
+                          <SelectItem value="10-A">Class 10-A</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      {errors.class && (
+                        <p className="text-red-500 text-sm mt-1">{errors.class}</p>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {currentStep === 2 && (
+                  <div className="animate-in fade-in duration-300">
+                    <div className="flex flex-col items-center">
+                      <div className="relative w-64 h-64 bg-black rounded-xl overflow-hidden mb-4">
+                        {showWebcam && !faceEnrolled && studentDbId ? (
+                          <>
+                            <img
+                              src={`http://localhost:8000/video_feed?student_id=${studentDbId}`}
+                              alt="Webcam Feed"
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                console.error("Video feed error");
+                                (e.target as HTMLImageElement).style.display = "none";
+                              }}
+                            />
+                            <div className="absolute top-4 right-4 bg-red-500 text-white px-3 py-1 rounded-full text-sm font-semibold flex items-center gap-2">
+                              <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
+                              RECORDING
+                            </div>
+                            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                              <div className="w-40 h-52 border-2 border-dashed border-[#3B82F6] rounded-[50%] animate-pulse" />
+                            </div>
+                          </>
+                        ) : faceEnrolled ? (
+                          <div className="w-full h-full bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center">
+                            <div className="text-center text-white">
+                              <CheckCircle className="w-16 h-16 mx-auto mb-2" />
+                              <p className="font-medium">Face Captured!</p>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="w-full h-full bg-gradient-to-br from-[#1E293B] to-[#0F172A] flex items-center justify-center">
+                            <Camera className="w-12 h-12 text-white/40" />
+                          </div>
+                        )}
+                      </div>
+
                       <input
                         ref={fileInputRef}
                         type="file"
-                        accept="image/jpeg,image/jpg,image/png"
+                        accept="image/*"
                         onChange={handleUploadPhoto}
                         className="hidden"
                       />
+
+                      {!showWebcam && !faceEnrolled && (
+                        <div className="flex flex-col gap-3 w-full max-w-xs">
+                          <Button
+                            onClick={handleCaptureFace}
+                            disabled={isProcessing}
+                            className="bg-[#3B82F6] hover:bg-[#2563EB] text-white w-full"
+                          >
+                            <Camera className="w-4 h-4 mr-2" />
+                            {isProcessing ? "Capturing..." : "Start Camera"}
+                          </Button>
+                          <div className="relative flex items-center justify-center">
+                            <div className="border-t border-[#E2E8F0] w-full" />
+                            <span className="absolute bg-white px-3 text-[#94A3B8] text-sm">or</span>
+                          </div>
+                          <Button
+                            onClick={() => fileInputRef.current?.click()}
+                            disabled={isProcessing}
+                            variant="outline"
+                            className="border-[#3B82F6] text-[#3B82F6] hover:bg-[#3B82F6]/10 w-full"
+                          >
+                            <Upload className="w-4 h-4 mr-2" />
+                            Upload Photo
+                          </Button>
+                        </div>
+                      )}
+
+                      {showWebcam && !faceEnrolled && !processingStatus && (
+                        <p className="text-sm text-[#64748B] text-center max-w-xs">
+                          Please look at the camera. Capturing multiple angles...
+                        </p>
+                      )}
+
+                      {faceEnrolled && (
+                        <Button
+                          onClick={() => {
+                            setFaceEnrolled(false);
+                            setShowWebcam(false);
+                          }}
+                          variant="outline"
+                          className="border-[#3B82F6] text-[#3B82F6]"
+                        >
+                          Retake Photo
+                        </Button>
+                      )}
                     </div>
-                  )}
-                </div>
-
-                <div className="text-center py-8 bg-[#F8FAFC] rounded-lg">
-                  <div className={`w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-4 ${
-                    fingerprintEnrolled ? "bg-green-100" : "bg-[#EBF5FF]"
-                  }`}>
-                    <span className="text-4xl">{fingerprintEnrolled ? "✅" : "👆"}</span>
                   </div>
-                  <p className="text-black font-medium mb-2">Fingerprint Registration</p>
-                  <p className="text-[#64748B] mb-4">
-                    {fingerprintEnrolled ? "Fingerprint enrolled successfully!" : "Scan student fingerprint (Optional)"}
-                  </p>
-                  {!fingerprintEnrolled && (
-                    <Button 
-                      onClick={handleScanFingerprint}
-                      disabled={isProcessing}
-                      className="bg-[#3B82F6] hover:bg-[#2563EB] text-white"
-                    >
-                      {isProcessing ? "Scanning..." : "Scan Fingerprint"}
-                    </Button>
-                  )}
-                </div>
+                )}
 
-                <div className="flex gap-4">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setStep(1)}
-                    className="flex-1 border-[#3B82F6] text-[#3B82F6]"
-                    disabled={isProcessing}
-                  >
-                    Back
-                  </Button>
-                  <Button 
-                    onClick={handleCreateStudent}
-                    disabled={!faceEnrolled || isProcessing}
-                    className="flex-1 bg-green-600 hover:bg-green-700 text-white disabled:opacity-50"
-                  >
-                    {isProcessing ? "Processing..." : "Create Student & Send Invitation"}
-                  </Button>
+                {currentStep === 3 && (
+                  <div className="animate-in fade-in duration-300">
+                    <div className="flex flex-col items-center">
+                      <div
+                        className={`
+                        relative w-48 h-48 rounded-xl flex items-center justify-center mb-4 transition-all duration-500
+                        ${
+                          fingerprintEnrolled || fingerprintStatus === "success"
+                            ? "bg-gradient-to-br from-green-500 to-green-600"
+                            : "bg-gradient-to-br from-[#1E293B] to-[#0F172A]"
+                        }
+                      `}
+                      >
+                        {fingerprintEnrolled || fingerprintStatus === "success" ? (
+                          <div className="text-center text-white">
+                            <CheckCircle className="w-16 h-16 mx-auto mb-2" />
+                            <p className="font-medium">Registered!</p>
+                          </div>
+                        ) : (
+                          <div className="relative">
+                            <Fingerprint className="w-20 h-20 text-[#3B82F6]" />
+                            {fingerprintStatus === "scanning" && (
+                              <div className="absolute inset-0 bg-[#3B82F6]/30 rounded-full animate-ping" />
+                            )}
+                          </div>
+                        )}
+
+                        {fingerprintStatus === "scanning" && (
+                          <div className="absolute inset-0 overflow-hidden rounded-xl">
+                            <div
+                              className="w-full h-0.5 bg-[#3B82F6] shadow-lg shadow-blue-400"
+                              style={{
+                                animation: "scan 2s ease-in-out infinite",
+                              }}
+                            />
+                          </div>
+                        )}
+                      </div>
+
+                      <p className="text-[#64748B] text-sm text-center mb-2 max-w-xs font-medium">
+                        Fingerprint Slot ID: {fingerprintSlotId}
+                      </p>
+
+                      {/* Step Progress Indicator */}
+                      {fingerprintStatus === "scanning" && fingerprintStep > 0 && (
+                        <div className="flex justify-center items-center gap-3 mb-4">
+                          {[1, 2, 3].map((step) => (
+                            <div
+                              key={step}
+                              className={`w-3 h-3 rounded-full transition-all duration-300 ${
+                                step <= fingerprintStep
+                                  ? 'bg-[#3B82F6] scale-110'
+                                  : 'bg-gray-300'
+                              }`}
+                            />
+                          ))}
+                        </div>
+                      )}
+
+                      <p className={`text-center mb-4 max-w-md font-semibold text-lg ${
+                        fingerprintStatus === "success" ? "text-green-600" :
+                        fingerprintStatus === "error" ? "text-red-600" :
+                        fingerprintStatus === "scanning" ? "text-[#3B82F6]" :
+                        "text-[#64748B]"
+                      }`}>
+                        {fingerprintEnrolled || fingerprintStatus === "success"
+                          ? fingerprintMessage || "Fingerprint successfully registered."
+                          : fingerprintStatus === "scanning"
+                            ? fingerprintMessage || "Place finger on the scanner device."
+                            : fingerprintStatus === "error"
+                              ? fingerprintMessage
+                              : "Place finger on the scanner device."}
+                      </p>
+
+                      {!fingerprintEnrolled && fingerprintStatus !== "success" ? (
+                        <Button
+                          onClick={handleScanFingerprint}
+                          disabled={isProcessing || fingerprintStatus === "scanning"}
+                          className="bg-[#3B82F6] hover:bg-[#2563EB] text-white"
+                        >
+                          {fingerprintStatus === "scanning" ? (
+                            <span className="flex items-center gap-2">
+                              <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                              Scanning...
+                            </span>
+                          ) : fingerprintStatus === "error" ? (
+                            <>
+                              <Fingerprint className="w-4 h-4 mr-2" />
+                              Try Again
+                            </>
+                          ) : (
+                            <>
+                              <Fingerprint className="w-4 h-4 mr-2" />
+                              Scan Fingerprint
+                            </>
+                          )}
+                        </Button>
+                      ) : (
+                        <Button
+                          onClick={() => {
+                            setFingerprintEnrolled(false);
+                            setFingerprintStatus("idle");
+                            setFingerprintMessage("");
+                          }}
+                          variant="outline"
+                          className="border-[#3B82F6] text-[#3B82F6]"
+                        >
+                          Rescan
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {currentStep === 4 && (
+                  <div className="animate-in fade-in duration-300 space-y-4">
+                    <div className="space-y-3">
+                      <div className="flex justify-between py-2 border-b border-[#E2E8F0]">
+                        <span className="text-[#64748B]">Name</span>
+                        <span className="font-medium text-black">
+                          {formData.firstName} {formData.lastName}
+                        </span>
+                      </div>
+                      <div className="flex justify-between py-2 border-b border-[#E2E8F0]">
+                        <span className="text-[#64748B]">Email</span>
+                        <span className="font-medium text-black">{formData.email}</span>
+                      </div>
+                      <div className="flex justify-between py-2 border-b border-[#E2E8F0]">
+                        <span className="text-[#64748B]">Phone</span>
+                        <span className="font-medium text-black">{formData.phone}</span>
+                      </div>
+                      <div className="flex justify-between py-2 border-b border-[#E2E8F0]">
+                        <span className="text-[#64748B]">Class</span>
+                        <span className="font-medium text-black">{formData.class}</span>
+                      </div>
+                      <div className="flex justify-between py-2">
+                        <span className="text-[#64748B]">Face</span>
+                        <span className={`font-medium ${faceEnrolled ? "text-green-600" : "text-orange-500"}`}>
+                          {faceEnrolled ? "✓ Captured" : "⚠ Pending"}
+                        </span>
+                      </div>
+                      <div className="flex justify-between py-2">
+                        <span className="text-[#64748B]">Fingerprint</span>
+                        <span className={`font-medium ${fingerprintEnrolled ? "text-green-600" : "text-orange-500"}`}>
+                          {fingerprintEnrolled ? "✓ Registered" : "⚠ Optional"}
+                        </span>
+                      </div>
+                    </div>
+
+                    <Button
+                      className="w-full bg-green-600 hover:bg-green-700 text-white h-12"
+                      onClick={handleComplete}
+                      disabled={isProcessing}
+                    >
+                      <CheckCircle className="w-4 h-4 mr-2" />
+                      {isProcessing ? "Processing..." : "Complete Registration"}
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </Card>
+          </div>
+        </div>
+
+        {/* Progress Bar Footer */}
+        <div className="bg-[#F8FAFC] border-t border-[#E2E8F0] py-6 px-4 lg:px-12">
+          <div className="relative mb-6">
+            <div className="h-2 bg-[#E2E8F0] rounded-full relative overflow-hidden">
+              <div
+                className="h-full bg-gradient-to-r from-[#3B82F6] to-[#60A5FA] rounded-full transition-all duration-700 ease-out"
+                style={{ width: `${progressPercent}%` }}
+              />
+            </div>
+
+            <div
+              className="absolute top-1/2 -translate-y-1/2 transition-all duration-700 ease-out"
+              style={{ left: `calc(${progressPercent}% - 20px)` }}
+            >
+              <div className="w-10 h-10 bg-[#3B82F6] rounded-full flex items-center justify-center shadow-lg shadow-blue-300 animate-pulse">
+                <User className="w-5 h-5 text-white" />
+              </div>
+            </div>
+
+            <div className="absolute inset-0 flex justify-between items-center">
+              {steps.map((step) => {
+                const isCompleted = currentStep > step.id;
+                const isCurrent = currentStep === step.id;
+                return (
+                  <div
+                    key={step.id}
+                    className={`
+                      w-4 h-4 rounded-full border-2 transition-all duration-300
+                      ${
+                        isCompleted
+                          ? "bg-[#3B82F6] border-[#3B82F6]"
+                          : isCurrent
+                            ? "bg-white border-[#3B82F6]"
+                            : "bg-white border-[#CBD5E1]"
+                      }
+                    `}
+                  />
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="flex justify-center gap-4">
+            <Button
+              onClick={prevStep}
+              disabled={currentStep === 1 || isProcessing}
+              className={`
+                px-8 py-3 rounded-full font-medium transition-all duration-300
+                ${
+                  currentStep === 1 || isProcessing
+                    ? "bg-[#CBD5E1] text-white cursor-not-allowed"
+                    : "bg-[#1E293B] hover:bg-black text-white"
+                }
+              `}
+            >
+              Previous
+            </Button>
+
+            {currentStep < 4 && (
+              <Button
+                onClick={() => {
+                  if (currentStep === 1) {
+                    handleNext();
+                  } else {
+                    nextStep();
+                  }
+                }}
+                disabled={isProcessing}
+                className="px-8 py-3 rounded-full bg-[#1E293B] hover:bg-black text-white font-medium"
+              >
+                {currentStep === 1 ? "Save & Next" : "Next"}
+              </Button>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Full Page Processing Overlay - Only show when not showing webcam */}
+      {isProcessing && processingStatus && !showWebcam && (
+        <div className="fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-center justify-center">
+          {/* Animated Loading Bar */}
+          <div className="absolute top-0 left-0 right-0 h-1 bg-gray-800">
+            <div className="h-full bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 animate-[loading_2s_ease-in-out_infinite]"></div>
+          </div>
+          
+          <div className="w-full max-w-4xl mx-8">
+            <div className="space-y-16">
+              <div className="text-center mb-20">
+                <h3 className="text-7xl font-bold text-white tracking-wide">
+                  {!faceEnrolled ? "PROCESSING EMBEDDINGS" : "FINGERPRINT ENROLLMENT"}
+                </h3>
+                {/* Spinning loader */}
+                <div className="flex justify-center mt-8">
+                  <div className="w-16 h-16 border-4 border-white/20 border-t-white rounded-full animate-spin"></div>
                 </div>
               </div>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card className="border-0 shadow-lg">
-          <CardHeader>
-            <CardTitle className="text-black">Recently Added Students</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {recentStudents.map((student) => (
-                <div key={student.id} className="flex items-center justify-between p-4 bg-[#F8FAFC] rounded-lg">
-                  <div>
-                    <p className="font-medium text-black">{student.name}</p>
-                    <p className="text-sm text-[#64748B]">
-                      {student.id} • Class {student.class}
-                    </p>
+              
+              {/* Face Enrollment Steps */}
+              {!faceEnrolled && (
+                <div className="space-y-10">
+                  <div className={`transition-all duration-1000 ease-out transform ${processingSteps >= 1 ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'}`}>
+                    <div className="flex items-center gap-8">
+                      <div className={`w-6 h-6 rounded-full transition-all duration-700 ${processingSteps >= 1 ? 'bg-green-400 shadow-lg shadow-green-400/50 scale-100' : 'bg-gray-600 scale-75'}`}></div>
+                      <span className="text-4xl font-medium text-white/90">Detecting facial landmarks</span>
+                    </div>
                   </div>
-                  <span className="text-[#64748B] text-sm">{student.email}</span>
+
+                  <div className={`transition-all duration-1000 ease-out transform ${processingSteps >= 2 ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'}`}>
+                    <div className="flex items-center gap-8">
+                      <div className={`w-6 h-6 rounded-full transition-all duration-700 ${processingSteps >= 2 ? 'bg-green-400 shadow-lg shadow-green-400/50 scale-100' : 'bg-gray-600 scale-75'}`}></div>
+                      <span className="text-4xl font-medium text-white/90">Extracting 512-dimension features</span>
+                    </div>
+                  </div>
+
+                  <div className={`transition-all duration-1000 ease-out transform ${processingSteps >= 3 ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'}`}>
+                    <div className="flex items-center gap-8">
+                      <div className={`w-6 h-6 rounded-full transition-all duration-700 ${processingSteps >= 3 ? 'bg-yellow-400 shadow-lg shadow-yellow-400/50 scale-100 animate-pulse' : 'bg-gray-600 scale-75'}`}></div>
+                      <span className="text-4xl font-medium text-white/90">Generating ArcFace embeddings</span>
+                    </div>
+                  </div>
+
+                  <div className={`transition-all duration-1000 ease-out transform ${processingSteps >= 4 ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'}`}>
+                    <div className="flex items-center gap-8">
+                      <div className={`w-6 h-6 rounded-full transition-all duration-700 ${processingSteps >= 4 ? 'bg-blue-400 shadow-lg shadow-blue-400/50 scale-100' : 'bg-gray-600 scale-75'}`}></div>
+                      <span className="text-4xl font-medium text-white/70">Storing to vector database</span>
+                    </div>
+                  </div>
                 </div>
-              ))}
+              )}
+              
+              {/* Fingerprint Enrollment Steps */}
+              {faceEnrolled && (
+                <div className="space-y-10">
+                  <div className={`transition-all duration-1000 ease-out transform ${processingSteps >= 1 ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'}`}>
+                    <div className="flex items-center gap-8">
+                      <div className={`w-6 h-6 rounded-full transition-all duration-700 ${processingSteps >= 1 ? 'bg-blue-400 shadow-lg shadow-blue-400/50 scale-100' : 'bg-gray-600 scale-75'}`}></div>
+                      <span className="text-4xl font-medium text-white/90">👉 Place finger</span>
+                    </div>
+                  </div>
+
+                  <div className={`transition-all duration-1000 ease-out transform ${processingSteps >= 2 ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'}`}>
+                    <div className="flex items-center gap-8">
+                      <div className={`w-6 h-6 rounded-full transition-all duration-700 ${processingSteps >= 2 ? 'bg-yellow-400 shadow-lg shadow-yellow-400/50 scale-100' : 'bg-gray-600 scale-75'}`}></div>
+                      <span className="text-4xl font-medium text-white/90">✋ Remove finger</span>
+                    </div>
+                  </div>
+
+                  <div className={`transition-all duration-1000 ease-out transform ${processingSteps >= 3 ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'}`}>
+                    <div className="flex items-center gap-8">
+                      <div className={`w-6 h-6 rounded-full transition-all duration-700 ${processingSteps >= 3 ? 'bg-blue-400 shadow-lg shadow-blue-400/50 scale-100 animate-pulse' : 'bg-gray-600 scale-75'}`}></div>
+                      <span className="text-4xl font-medium text-white/90">👉 Place SAME finger again</span>
+                    </div>
+                  </div>
+
+                  <div className={`transition-all duration-1000 ease-out transform ${processingSteps >= 4 ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'}`}>
+                    <div className="flex items-center gap-8">
+                      <div className={`w-6 h-6 rounded-full transition-all duration-700 ${processingSteps >= 4 ? 'bg-green-400 shadow-lg shadow-green-400/50 scale-100' : 'bg-gray-600 scale-75'}`}></div>
+                      <span className="text-4xl font-medium text-white/90">🎉 Fingerprint Enrollment SUCCESS</span>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
-          </CardContent>
-        </Card>
-      </div>
+          </div>
+        </div>
+      )}
+
+      <style jsx global>{`
+        @keyframes scan {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(192px); }
+        }
+        @keyframes loading {
+          0% { transform: translateX(-100%); }
+          100% { transform: translateX(100%); }
+        }
+      `}</style>
     </PageContainer>
-  )
+  );
 }

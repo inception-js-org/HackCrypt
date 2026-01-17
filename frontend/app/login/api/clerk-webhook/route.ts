@@ -20,17 +20,17 @@ type ClerkWebhookEvent = {
     private_metadata?: {
       role?: UserRole;
     };
+    unsafe_metadata?: {
+      role?: UserRole;
+    };
   };
 };
 
 export async function POST(req: NextRequest) {
-  console.log("🪝 [Webhook] Clerk webhook received");
+  const SIGNING_SECRET = process.env.CLERK_WEBHOOK_SECRET;
 
-  // Get webhook secret from environment
-  const WEBHOOK_SECRET = process.env.CLERK_WEBHOOK_SECRET;
-
-  if (!WEBHOOK_SECRET) {
-    console.error("❌ [Webhook] CLERK_WEBHOOK_SECRET not configured");
+  if (!SIGNING_SECRET) {
+    console.error("❌ [Webhook] CLERK_WEBHOOK_SECRET is not set");
     return NextResponse.json(
       { error: "Server configuration error" },
       { status: 500 }
@@ -43,7 +43,6 @@ export async function POST(req: NextRequest) {
   const svix_timestamp = headerPayload.get("svix-timestamp");
   const svix_signature = headerPayload.get("svix-signature");
 
-  // Verify headers exist
   if (!svix_id || !svix_timestamp || !svix_signature) {
     console.error("❌ [Webhook] Missing svix headers");
     return NextResponse.json(
@@ -52,36 +51,30 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // Get the body
+  // Get body
   const payload = await req.json();
   const body = JSON.stringify(payload);
 
-  // Create a new Svix instance with your webhook secret
-  const wh = new Webhook(WEBHOOK_SECRET);
-
+  // Verify webhook
+  const wh = new Webhook(SIGNING_SECRET);
   let evt: ClerkWebhookEvent;
 
-  // Verify the webhook signature
   try {
     evt = wh.verify(body, {
       "svix-id": svix_id,
       "svix-timestamp": svix_timestamp,
       "svix-signature": svix_signature,
     }) as ClerkWebhookEvent;
-
-    console.log("✅ [Webhook] Signature verified");
   } catch (err) {
-    console.error("❌ [Webhook] Signature verification failed:", err);
+    console.error("❌ [Webhook] Verification failed:", err);
     return NextResponse.json(
-      { error: "Invalid signature" },
+      { error: "Webhook verification failed" },
       { status: 400 }
     );
   }
 
-  // Handle the webhook event
   const { type, data } = evt;
-
-  console.log(`📨 [Webhook] Event type: ${type}`);
+  console.log(`📨 [Webhook] Received event: ${type}`);
   console.log(`👤 [Webhook] User ID: ${data.id}`);
 
   try {
@@ -94,8 +87,9 @@ export async function POST(req: NextRequest) {
         const firstName = data.first_name;
         const lastName = data.last_name;
         
-        // Get role from metadata (prefer private over public)
+        // Get role from metadata (prefer unsafe > private > public)
         const role =
+          (data.unsafe_metadata?.role as UserRole) ||
           (data.private_metadata?.role as UserRole) ||
           (data.public_metadata?.role as UserRole) ||
           "STUDENT";
@@ -119,33 +113,26 @@ export async function POST(req: NextRequest) {
           lastName,
         });
 
-        console.log(`✅ [Webhook] User ${type === "user.created" ? "created" : "updated"} successfully`);
+        console.log("✅ [Webhook] User synced successfully");
         break;
       }
 
       case "user.deleted": {
-        const clerkUserId = data.id;
-        console.log(`🗑️ [Webhook] Deleting user: ${clerkUserId}`);
-
-        // Delete from database
-        await deleteUserFromDatabase(clerkUserId);
-
+        console.log(`🗑️ [Webhook] Deleting user: ${data.id}`);
+        await deleteUserFromDatabase(data.id);
         console.log("✅ [Webhook] User deleted successfully");
         break;
       }
 
       default:
-        console.log(`⚠️ [Webhook] Unhandled event type: ${type}`);
+        console.log(`ℹ️ [Webhook] Unhandled event type: ${type}`);
     }
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("❌ [Webhook] Error processing webhook:", error);
+    console.error("❌ [Webhook] Error processing event:", error);
     return NextResponse.json(
-      {
-        error: "Internal server error",
-        details: error instanceof Error ? error.message : String(error),
-      },
+      { error: "Internal server error" },
       { status: 500 }
     );
   }
