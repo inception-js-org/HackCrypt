@@ -325,6 +325,8 @@ async def start_webcam_enrollment(student_id: str = Query(...)):
             },
             "fingerprint": {
                 "POST /api/fingerprint/enroll": "Enroll fingerprint via Arduino",
+                "POST /api/fingerprint/match": "Match fingerprint via Arduino",
+                "POST /api/fingerprint/stop": "Stop fingerprint operation via Arduino",
                 "GET /api/fingerprint/ports": "List available serial ports"
             }
         },

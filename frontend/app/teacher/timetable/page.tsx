@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { X, Camera, Fingerprint, Clock, Users, CheckCircle2 } from "lucide-react"
 import {
   Select,
   SelectContent,
@@ -85,6 +86,7 @@ export default function TeacherTimetablePage() {
   const videoRef = useRef<HTMLImageElement>(null)
   const timerRef = useRef<NodeJS.Timeout | null>(null)
   const recognitionIntervalRef = useRef<NodeJS.Timeout | null>(null)
+  const fingerprintIntervalRef = useRef<NodeJS.Timeout | null>(null)
   
   const { toast } = useToast()
 
@@ -228,6 +230,9 @@ export default function TeacherTimetablePage() {
         // Start face recognition polling
         startFaceRecognition(session.id)
 
+        // Start fingerprint matching polling
+        startFingerprintMatching(session.id)
+
         toast({ title: "Session Started", description: "Attendance marking is now active" })
       }
     } catch (error) {
@@ -246,6 +251,7 @@ export default function TeacherTimetablePage() {
       // Stop timers
       if (timerRef.current) clearInterval(timerRef.current)
       if (recognitionIntervalRef.current) clearInterval(recognitionIntervalRef.current)
+      if (fingerprintIntervalRef.current) clearInterval(fingerprintIntervalRef.current)
 
       const response = await fetch(`/api/sessions/${activeSession.id}`, {
         method: "PATCH",
@@ -298,6 +304,33 @@ export default function TeacherTimetablePage() {
         console.error("Face recognition error:", error)
       }
     }, 2000)
+  }
+
+  const startFingerprintMatching = (sessionId: number) => {
+    // Poll the fingerprint match endpoint every 3 seconds
+    fingerprintIntervalRef.current = setInterval(async () => {
+      try {
+        const response = await fetch("http://localhost:8000/api/fingerprint/match", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sessionId }),
+        })
+        const data = await response.json()
+
+        if (data.success && data.studentId) {
+          // Find student by fingerprint ID
+          const student = classStudents.find(
+            (s) => s.fingerprintId === String(data.studentId)
+          )
+          
+          if (student && !fingerprintVerified.has(student.id)) {
+            await recordAttendance(sessionId, student.id, "fingerprint")
+          }
+        }
+      } catch (error) {
+        console.error("Fingerprint matching error:", error)
+      }
+    }, 3000)
   }
 
   const recordAttendance = async (
@@ -359,6 +392,7 @@ export default function TeacherTimetablePage() {
     return () => {
       if (timerRef.current) clearInterval(timerRef.current)
       if (recognitionIntervalRef.current) clearInterval(recognitionIntervalRef.current)
+      if (fingerprintIntervalRef.current) clearInterval(fingerprintIntervalRef.current)
     }
   }, [])
 
@@ -569,104 +603,207 @@ export default function TeacherTimetablePage() {
         </CardContent>
       </Card>
 
-      {/* Active Session Panel */}
+      {/* Active Session Modal */}
       {activeSession && (
-        <Card className="border-0 shadow-lg mt-6">
-          <CardHeader className="bg-[#3B82F6] text-white rounded-t-lg">
-            <div className="flex items-center justify-between">
-              <CardTitle>
-                Active Session - {activeSession.subject} (
-                {activeSession.class?.grade}-{activeSession.class?.section})
-              </CardTitle>
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-6xl max-h-[90vh] overflow-hidden shadow-2xl">
+            {/* Modal Header */}
+            <div className="bg-[#3B82F6] text-white px-6 py-4 flex items-center justify-between">
               <div className="flex items-center gap-4">
-                <Badge className="bg-white text-[#3B82F6] text-lg px-4 py-1">
-                  ⏱️ {formatTime(timeRemaining)}
-                </Badge>
-                <Badge className="bg-green-500 text-white text-lg px-4 py-1">
-                  {presentCount}/{totalStudents} Present
-                </Badge>
+                <h2 className="text-xl font-bold">
+                  Active Session - {activeSession.subject} ({activeSession.class?.grade}-{activeSession.class?.section})
+                </h2>
+              </div>
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2 bg-white/20 px-3 py-1.5 rounded-full">
+                  <Clock className="w-4 h-4" />
+                  <span className="font-mono">{formatTime(timeRemaining)}</span>
+                </div>
+                <div className="flex items-center gap-2 bg-green-500 px-3 py-1.5 rounded-full">
+                  <Users className="w-4 h-4" />
+                  <span className="font-semibold">
+                    {presentCount}/{totalStudents} Present
+                  </span>
+                </div>
+                <button onClick={endSession} className="p-2 hover:bg-white/20 rounded-full transition-colors">
+                  <X className="w-5 h-5" />
+                </button>
               </div>
             </div>
-          </CardHeader>
-          <CardContent className="pt-6">
-            <div className="grid md:grid-cols-2 gap-6">
-              {/* Face Recognition Feed */}
-              <div className="space-y-4">
-                <h3 className="font-semibold text-black">Face Recognition</h3>
-                <div className="relative bg-gray-900 rounded-lg overflow-hidden aspect-video">
-                  <img
-                    ref={videoRef}
-                    src="http://localhost:8000/video_feed?mode=identify"
-                    alt="Live Camera Feed"
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).style.display = "none"
-                    }}
-                  />
-                  <div className="absolute top-4 right-4 bg-red-500 text-white px-3 py-1 rounded-full text-sm font-semibold flex items-center gap-2">
-                    <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
-                    LIVE
-                  </div>
-                </div>
-                <p className="text-sm text-[#64748B]">
-                  {recognizedStudents.size} faces recognized
-                </p>
-              </div>
 
-              {/* Fingerprint Status */}
+            {/* Modal Body - 2x2 Grid Layout */}
+            <div className="p-6 grid grid-cols-2 gap-6 max-h-[calc(90vh-140px)] overflow-y-auto">
+              {/* Left Column - Camera */}
               <div className="space-y-4">
-                <h3 className="font-semibold text-black">Fingerprint Verification</h3>
-                <div className="bg-[#F8FAFC] rounded-lg p-6 text-center">
-                  <div className="w-20 h-20 bg-[#EBF5FF] rounded-full flex items-center justify-center mx-auto mb-4">
-                    <span className="text-4xl">👆</span>
-                  </div>
-                  <p className="text-black font-medium">Scanner Ready</p>
-                  <p className="text-[#64748B] text-sm mt-2">
-                    {fingerprintVerified.size} fingerprints verified
-                  </p>
-                </div>
-
-                {/* Attendance List */}
-                <div className="max-h-64 overflow-y-auto space-y-2">
-                  <h4 className="font-medium text-black">Recent Attendance</h4>
-                  {attendanceRecords.slice(-5).reverse().map((record) => (
-                    <div
-                      key={record.id}
-                      className="flex items-center justify-between p-2 bg-gray-50 rounded"
-                    >
-                      <span className="text-sm">
-                        {record.student?.firstName} {record.student?.lastName}
-                      </span>
-                      <div className="flex gap-1">
-                        {record.faceRecognizedAt && (
-                          <Badge className="bg-blue-100 text-blue-700 text-xs">📷</Badge>
-                        )}
-                        {record.fingerprintVerifiedAt && (
-                          <Badge className="bg-green-100 text-green-700 text-xs">👆</Badge>
-                        )}
-                      </div>
+                {/* Camera Section */}
+                <div className="border-2 border-[#E2E8F0] rounded-xl overflow-hidden">
+                  <div className="bg-[#F8FAFC] px-4 py-3 border-b border-[#E2E8F0] flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Camera className="w-5 h-5 text-[#3B82F6]" />
+                      <span className="font-semibold text-black">Face Recognition</span>
                     </div>
-                  ))}
+                    {!activeSession ? (
+                      <Button size="sm" className="bg-[#3B82F6] hover:bg-[#2563EB] text-white">
+                        Start Camera
+                      </Button>
+                    ) : (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="border-red-500 text-red-500 hover:bg-red-50 bg-transparent"
+                      >
+                        Stop Camera
+                      </Button>
+                    )}
+                  </div>
+                  <div className="aspect-video bg-[#1a1a2e] relative">
+                    <img
+                      ref={videoRef}
+                      src="http://localhost:8000/video_feed?mode=identify"
+                      alt="Live Camera Feed"
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).style.display = "none"
+                      }}
+                    />
+                    {!activeSession ? (
+                      <div className="absolute inset-0 flex flex-col items-center justify-center text-white/60">
+                        <Camera className="w-16 h-16 mb-3" />
+                        <p>Click "Start Camera" to begin face detection</p>
+                      </div>
+                    ) : (
+                      <div className="absolute bottom-3 left-3 bg-black/70 text-white text-xs px-2 py-1 rounded flex items-center gap-2">
+                        <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
+                        Live - Detecting faces...
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Camera Logs Section */}
+                <div className="border-2 border-[#E2E8F0] rounded-xl overflow-hidden">
+                  <div className="bg-[#F8FAFC] px-4 py-3 border-b border-[#E2E8F0]">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="w-5 h-5 text-green-500" />
+                      <span className="font-semibold text-black">Face Recognition Logs</span>
+                      <Badge className="bg-green-100 text-green-700 ml-auto">{recognizedStudents.size} detected</Badge>
+                    </div>
+                  </div>
+                  <div className="max-h-[200px] overflow-y-auto">
+                    {attendanceRecords.filter(r => r.faceRecognizedAt).length > 0 ? (
+                      <table className="w-full">
+                        <thead className="bg-[#F8FAFC] sticky top-0">
+                          <tr className="text-left text-sm text-[#64748B]">
+                            <th className="px-4 py-2">Name</th>
+                            <th className="px-4 py-2">Roll No</th>
+                            <th className="px-4 py-2">Time</th>
+                            <th className="px-4 py-2">Status</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {attendanceRecords.filter(r => r.faceRecognizedAt).slice(-5).reverse().map((record) => (
+                            <tr key={record.id} className="border-t border-[#E2E8F0]">
+                              <td className="px-4 py-3 text-black font-medium">
+                                {record.student?.firstName} {record.student?.lastName}
+                              </td>
+                              <td className="px-4 py-3 text-[#64748B]">-</td>
+                              <td className="px-4 py-3 text-[#64748B]">
+                                {record.faceRecognizedAt ? new Date(record.faceRecognizedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '-'}
+                              </td>
+                              <td className="px-4 py-3">
+                                <Badge className="bg-green-100 text-green-700">present</Badge>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    ) : (
+                      <div className="py-8 text-center text-[#64748B]">No faces detected yet</div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Right Column - Fingerprint */}
+              <div className="space-y-4">
+                {/* Fingerprint Section */}
+                <div className="border-2 border-[#E2E8F0] rounded-xl overflow-hidden">
+                  <div className="bg-[#F8FAFC] px-4 py-3 border-b border-[#E2E8F0]">
+                    <div className="flex items-center gap-2">
+                      <Fingerprint className="w-5 h-5 text-[#3B82F6]" />
+                      <span className="font-semibold text-black">Fingerprint Verification</span>
+                    </div>
+                  </div>
+                  <div className="aspect-video bg-[#F0F9FF] relative flex flex-col items-center justify-center">
+                    <div className="w-24 h-24 bg-[#3B82F6]/10 rounded-full flex items-center justify-center mb-4 relative">
+                      <Fingerprint className="w-12 h-12 text-[#3B82F6]" />
+                      {/* Scanning animation */}
+                      <div className="absolute inset-0 rounded-full border-2 border-[#3B82F6] animate-ping opacity-30"></div>
+                    </div>
+                    <p className="text-black font-medium">Scanner Ready</p>
+                    <p className="text-[#64748B] text-sm mt-1">Waiting for fingerprint input...</p>
+                  </div>
+                </div>
+
+                {/* Fingerprint Logs Section */}
+                <div className="border-2 border-[#E2E8F0] rounded-xl overflow-hidden">
+                  <div className="bg-[#F8FAFC] px-4 py-3 border-b border-[#E2E8F0]">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="w-5 h-5 text-green-500" />
+                      <span className="font-semibold text-black">Fingerprint Matching Logs</span>
+                      <Badge className="bg-green-100 text-green-700 ml-auto">{fingerprintVerified.size} verified</Badge>
+                    </div>
+                  </div>
+                  <div className="max-h-[200px] overflow-y-auto">
+                    {attendanceRecords.filter(r => r.fingerprintVerifiedAt).length > 0 ? (
+                      <table className="w-full">
+                        <thead className="bg-[#F8FAFC] sticky top-0">
+                          <tr className="text-left text-sm text-[#64748B]">
+                            <th className="px-4 py-2">Name</th>
+                            <th className="px-4 py-2">Roll No</th>
+                            <th className="px-4 py-2">Time</th>
+                            <th className="px-4 py-2">Status</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {attendanceRecords.filter(r => r.fingerprintVerifiedAt).slice(-5).reverse().map((record) => (
+                            <tr key={record.id} className="border-t border-[#E2E8F0]">
+                              <td className="px-4 py-3 text-black font-medium">
+                                {record.student?.firstName} {record.student?.lastName}
+                              </td>
+                              <td className="px-4 py-3 text-[#64748B]">-</td>
+                              <td className="px-4 py-3 text-[#64748B]">
+                                {record.fingerprintVerifiedAt ? new Date(record.fingerprintVerifiedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '-'}
+                              </td>
+                              <td className="px-4 py-3">
+                                <Badge className="bg-blue-100 text-blue-700">verified</Badge>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    ) : (
+                      <div className="py-8 text-center text-[#64748B]">No fingerprints verified yet</div>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
 
-            <div className="flex justify-center gap-4 mt-6">
+            {/* Modal Footer */}
+            <div className="px-6 py-4 bg-[#F8FAFC] border-t border-[#E2E8F0] flex justify-center gap-4">
               <Button
                 variant="outline"
-                className="border-[#3B82F6] text-[#3B82F6] bg-transparent"
+                className="border-[#3B82F6] text-[#3B82F6] hover:bg-[#EBF5FF] px-8 bg-transparent"
               >
                 Manual Entry
               </Button>
-              <Button
-                onClick={endSession}
-                className="bg-red-600 hover:bg-red-700 text-white"
-              >
+              <Button onClick={endSession} className="bg-red-500 hover:bg-red-600 text-white px-8">
                 End Session
               </Button>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       )}
     </PageContainer>
   )
