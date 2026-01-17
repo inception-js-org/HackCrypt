@@ -7,7 +7,7 @@ export default function ChooseRolePage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
 
-  const handleRoleSelection = (role: "STUDENT" | "FACULTY" | "ADMIN", action: "signup" | "signin") => {
+  const handleRoleSelection = (role: "STUDENT" | "FACULTY" | "ADMIN") => {
     setLoading(true);
     
     // Admin has separate login page
@@ -19,12 +19,8 @@ export default function ChooseRolePage() {
     // Store role in sessionStorage to use after authentication
     sessionStorage.setItem("selectedRole", role);
     
-    // Redirect to sign-up or sign-in
-    if (action === "signup") {
-      router.push(`/login/sign-up?role=${role}`);
-    } else {
-      router.push(`/login/sign-in?role=${role}`);
-    }
+    // Redirect to sign-in
+    router.push(`/login/sign-in?role=${role}`);
   };
 
   return (
@@ -58,17 +54,10 @@ export default function ChooseRolePage() {
             
             <div className="space-y-3">
               <button
-                onClick={() => handleRoleSelection("STUDENT", "signup")}
+                onClick={() => handleRoleSelection("STUDENT")}
                 disabled={loading}
                 className="w-full py-3 px-6 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 font-medium transition-colors"
-              >
-                Sign Up as Student
-              </button>
-              <button
-                onClick={() => handleRoleSelection("STUDENT", "signin")}
-                disabled={loading}
-                className="w-full py-3 px-6 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 disabled:opacity-50 font-medium transition-colors"
-              >
+              > 
                 Sign In as Student
               </button>
             </div>
@@ -88,16 +77,9 @@ export default function ChooseRolePage() {
             
             <div className="space-y-3">
               <button
-                onClick={() => handleRoleSelection("FACULTY", "signup")}
+                onClick={() => handleRoleSelection("FACULTY")}
                 disabled={loading}
                 className="w-full py-3 px-6 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 font-medium transition-colors"
-              >
-                Sign Up as Faculty
-              </button>
-              <button
-                onClick={() => handleRoleSelection("FACULTY", "signin")}
-                disabled={loading}
-                className="w-full py-3 px-6 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 disabled:opacity-50 font-medium transition-colors"
               >
                 Sign In as Faculty
               </button>
@@ -119,7 +101,7 @@ export default function ChooseRolePage() {
             
             <div className="space-y-3">
               <button
-                onClick={() => handleRoleSelection("ADMIN", "signin")}
+                onClick={() => handleRoleSelection("ADMIN")}
                 disabled={loading}
                 className="w-full py-3 px-6 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 font-medium transition-colors"
               >
