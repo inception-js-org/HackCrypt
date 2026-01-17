@@ -6,6 +6,7 @@ import SyncUserOnLoad from "@/components/SyncUserOnLoad"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { useAuth } from "@/contexts/auth-context"
+import { PeopleCarousel } from "@/components/people-carosuel"
 
 export default function LandingPage() {
   const { isLoggedIn, user } = useAuth()
@@ -16,16 +17,16 @@ export default function LandingPage() {
       <AnimatedBackground />
       <LandingNavbar />
 
-      <section className="relative z-10 min-h-screen flex flex-col items-center justify-center">
+      <section className="relative z-10 h-screen flex flex-col items-center justify-center">
         {/* Large background text */}
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <h1 className="text-[12rem] md:text-[18rem] lg:text-[21rem] font-bold text-white/30 tracking-tight select-none whitespace-nowrap">
+          <h1 className="text-[12rem] md:text-[18rem] lg:text-[19rem] font-bold text-white/30 tracking-tight select-none whitespace-nowrap">
             ATTEND<span className="text-white/30">IX</span>
           </h1>
         </div>
 
-        <div className="relative z-10 mt-16">
-          {/* 3D rotating panel carousel */}
+        <div className="relative z-10 mt-10">
+          {/* 3D rotating panel carousel
           <div className="flex items-center justify-center">
             <div className="carousel w-[320px] h-[360px] md:w-[520px] md:h-[620px]">
               <div className="carousel-scene relative w-full h-full animate-spinSlow">
@@ -52,9 +53,26 @@ export default function LandingPage() {
                 </div>
               </div>
             </div>
+          </div> */}
+          <div className="relative z-30">
+            <PeopleCarousel />
+
+            {/* Tagline positioned below neck, in front of image */}
+            {/* <div className="absolute top-[55%] md:top-[52%] left-1/2 -translate-x-1/2 w-full text-center z-10">
+              {isLoggedIn ? (
+                <p className="text-white text-sm md:text-base lg:text-lg tracking-[0.3em] uppercase font-light drop-shadow-lg px-4">
+                  Welcome back, {user?.name} — {user?.role} Dashboard
+                </p>
+              ) : (
+                <p className="text-white text-sm md:text-base lg:text-lg tracking-[0.3em] uppercase font-light drop-shadow-lg px-4">
+                  Transforming Attendance with AI-Powered Recognition
+                </p>
+              )}
+            </div> */}
           </div>
 
-          <div className="absolute bottom-12 md:bottom-29 left-1/2 -translate-x-1/2 w-full text-center z-20">
+
+          <div className="absolute bottom-12 md:bottom-29 left-1/2 -translate-x-1/2 w-full text-center z-2000">
             {isLoggedIn ? (
               <p className="text-white text-sm md:text-base lg:text-lg tracking-[0.3em] uppercase font-light drop-shadow-lg">
                 Welcome back, {user?.name} — {user?.role} Dashboard
@@ -93,6 +111,41 @@ export default function LandingPage() {
               </div>
             </div>
           </section>
+
+          {/* How It Works Section */}
+          <section id="how-it-works" className="relative z-10 py-24 bg-[#3B82F6]">
+            <div className="container mx-auto px-8">
+              <h2 className="text-4xl font-bold text-center text-white mb-16">
+                How It <span className="text-white/80">Works</span>
+              </h2>
+              <div className="grid md:grid-cols-7 gap-4 items-center">
+                <StepCard
+                  step={1}
+                  title="Register"
+                  description="Admin enrolls students and teachers with their biometric data"
+                />
+                <StepArrow />
+                <StepCard
+                  step={2}
+                  title="Scan"
+                  description="Students scan their face or fingerprint at the start of class"
+                />
+                <StepArrow />
+                <StepCard
+                  step={3}
+                  title="Verify"
+                  description="AI instantly verifies identity and marks attendance"
+                />
+                <StepArrow />
+                <StepCard
+                  step={4}
+                  title="Track"
+                  description="View real-time analytics and attendance reports"
+                />
+              </div>
+            </div>
+          </section>
+
 
           {/* User Types Section */}
           <section id="technology" className="relative z-10 py-24 bg-[#F8FAFC]">
@@ -193,5 +246,39 @@ function UserTypeCard({ title, description, href }: { title: string; description
         </div>
       </div>
     </Link>
+  )
+}
+function StepCard({ step, title, description }: { step: number; title: string; description: string }) {
+  return (
+    <div className="text-center">
+      <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg">
+        <span className="text-2xl font-bold text-[#3B82F6]">{step}</span>
+      </div>
+      <h3 className="text-xl font-bold text-white mb-3">{title}</h3>
+      <p className="text-white/80">{description}</p>
+    </div>
+  )
+}
+
+function StepArrow() {
+  return (
+    <div className="hidden md:flex items-center justify-center">
+      <svg
+        width="40"
+        height="24"
+        viewBox="0 0 40 24"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+        className="text-white/60"
+      >
+        <path
+          d="M2 12H38M38 12L28 2M38 12L28 22"
+          stroke="currentColor"
+          strokeWidth="3"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    </div>
   )
 }

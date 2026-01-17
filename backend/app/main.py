@@ -1,6 +1,8 @@
 from fastapi import FastAPI, Query, HTTPException
 from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
+from app.api import enroll, identify
+from app.api import enroll, identify, fingerprint
 import cv2
 import time
 import numpy as np
@@ -352,6 +354,26 @@ async def start_webcam_enrollment(student_id: str = Query(...)):
     }
     
     return {
+        "service": "Unified Identity Verification System",
+        "version": "2.0",
+        "model": "ArcFace (InsightFace buffalo_l)",
+        "embedding_dimension": 512,
+        "endpoints": {
+            "enroll": {
+                "POST /enroll/": "Enroll with image upload",
+                "POST /enroll/webcam": "Enroll with webcam"
+            },
+            "identify": {
+                "POST /identify/": "Identify with image upload",
+                "POST /identify/webcam": "Identify with webcam"
+            },
+            "fingerprint": {
+                "POST /api/fingerprint/enroll": "Enroll fingerprint via Arduino",
+                "POST /api/fingerprint/match": "Match fingerprint via Arduino",
+                "POST /api/fingerprint/stop": "Stop fingerprint operation via Arduino",
+                "GET /api/fingerprint/ports": "List available serial ports"
+            }
+        },
         "message": "Enrollment session started",
         "student_id": student_id,
         "version": "2.0",

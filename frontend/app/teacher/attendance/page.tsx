@@ -19,14 +19,14 @@ export default function TeacherAttendancePage() {
         <CardContent>
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead>
-                <tr className="border-b">
-                  <th className="px-4 py-3 text-left text-black font-semibold">Date</th>
-                  <th className="px-4 py-3 text-left text-black font-semibold">Class</th>
-                  <th className="px-4 py-3 text-left text-black font-semibold">Present</th>
-                  <th className="px-4 py-3 text-left text-black font-semibold">Absent</th>
-                  <th className="px-4 py-3 text-left text-black font-semibold">Late</th>
-                  <th className="px-4 py-3 text-left text-black font-semibold">Rate</th>
+              <thead className="bg-[#F8FAFC]">
+                <tr className="border-b border-[#E2E8F0]">
+                  <th className="px-4 py-3 text-left text-[#64748B] font-semibold text-sm">Date</th>
+                  <th className="px-4 py-3 text-left text-[#64748B] font-semibold text-sm">Class</th>
+                  <th className="px-4 py-3 text-left text-[#64748B] font-semibold text-sm">Present</th>
+                  <th className="px-4 py-3 text-left text-[#64748B] font-semibold text-sm">Absent</th>
+                  <th className="px-4 py-3 text-left text-[#64748B] font-semibold text-sm">Late</th>
+                  <th className="px-4 py-3 text-left text-[#64748B] font-semibold text-sm">Rate</th>
                 </tr>
               </thead>
               <tbody>
@@ -34,19 +34,19 @@ export default function TeacherAttendancePage() {
                   const total = record.present + record.absent + record.late
                   const rate = Math.round((record.present / total) * 100)
                   return (
-                    <tr key={index} className="border-b hover:bg-[#F8FAFC] transition-colors">
+                    <tr key={index} className="border-t border-[#E2E8F0] hover:bg-[#F8FAFC] transition-colors">
                       <td className="px-4 py-3 text-[#64748B]">{record.date}</td>
                       <td className="px-4 py-3 text-black font-medium">{record.class}</td>
                       <td className="px-4 py-3">
-                        <Badge className="bg-green-600 text-white">{record.present}</Badge>
+                        <Badge className="bg-green-100 text-green-700">{record.present}</Badge>
                       </td>
                       <td className="px-4 py-3">
-                        <Badge className="bg-red-600 text-white">{record.absent}</Badge>
+                        <Badge className="bg-red-100 text-red-700">{record.absent}</Badge>
                       </td>
                       <td className="px-4 py-3">
-                        <Badge className="bg-[#F59E0B] text-white">{record.late}</Badge>
+                        <Badge className="bg-orange-100 text-orange-700">{record.late}</Badge>
                       </td>
-                      <td className="px-4 py-3 text-[#3B82F6] font-medium">{rate}%</td>
+                      <td className="px-4 py-3 text-[#3B82F6] font-semibold">{rate}%</td>
                     </tr>
                   )
                 })}
