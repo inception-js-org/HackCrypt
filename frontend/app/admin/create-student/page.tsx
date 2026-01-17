@@ -79,6 +79,8 @@ export default function CreateStudentPage() {
   const [faceEnrolled, setFaceEnrolled] = useState(false);
   const [fingerprintEnrolled, setFingerprintEnrolled] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [processingStatus, setProcessingStatus] = useState<string>("");
+  const [processingSteps, setProcessingSteps] = useState<number>(0);
   const [showWebcam, setShowWebcam] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
@@ -204,12 +206,20 @@ export default function CreateStudentPage() {
 
     setShowWebcam(true);
     setIsProcessing(true);
+    setProcessingSteps(0);
+    setProcessingStatus("📷 Initializing camera...");
+    
+    // Animate steps progressively - much slower timing
+    setTimeout(() => setProcessingSteps(1), 3000);
+    setTimeout(() => setProcessingSteps(2), 7500);
+    setTimeout(() => setProcessingSteps(3), 10000);
 
     try {
       const faceId = studentDbId;
 
       // Start the webcam enrollment session
       console.log("📡 Starting webcam enrollment session...");
+      setProcessingStatus("🔍 Detecting face...");
       await fetch(`http://localhost:8000/enroll/webcam/start?student_id=${faceId}`, {
         method: "POST",
       });
@@ -223,6 +233,7 @@ export default function CreateStudentPage() {
       const maxAttempts = 60; // 60 seconds max
 
       console.log("⏳ Waiting for enrollment to complete...");
+      setProcessingStatus("🎯 Capturing facial features...");
 
       while (!completed && attempts < maxAttempts) {
         await new Promise((resolve) => setTimeout(resolve, 1000)); // Wait 1 second
@@ -233,6 +244,17 @@ export default function CreateStudentPage() {
         const status = await statusResponse.json();
 
         console.log(`Enrollment status (attempt ${attempts + 1}):`, status);
+
+        // Update status message based on progress
+        if (attempts < 10) {
+          setProcessingStatus("📸 Capturing multiple angles...");
+        } else if (attempts < 20) {
+          setProcessingStatus("🧬 Extracting facial landmarks...");
+        } else if (attempts < 30) {
+          setProcessingStatus("🔬 Analyzing facial features...");
+        } else {
+          setProcessingStatus("💾 Processing embeddings...");
+        }
 
         if (status.completed) {
           completed = true;
@@ -249,6 +271,7 @@ export default function CreateStudentPage() {
 
       // Finalize enrollment
       console.log("💾 Finalizing enrollment in Pinecone...");
+      setProcessingStatus("✨ Finalizing enrollment...");
       const response = await fetch(
         `http://localhost:8000/enroll/webcam?student_id=${faceId}`,
         {
@@ -267,6 +290,7 @@ export default function CreateStudentPage() {
 
       // Update student record with face ID
       console.log("📝 Updating database with face_id:", data.face_id);
+      setProcessingStatus("💾 Saving to database...");
       const dbResponse = await fetch("/api/students/update-biometric", {
         method: "POST",
         headers: {
@@ -304,6 +328,8 @@ export default function CreateStudentPage() {
     } finally {
       setIsProcessing(false);
       setShowWebcam(false);
+      setProcessingStatus("");
+      setProcessingSteps(0);
     }
   };
 
@@ -333,6 +359,14 @@ export default function CreateStudentPage() {
     }
 
     setIsProcessing(true);
+    setProcessingSteps(0);
+    setProcessingStatus("📤 Uploading photo...");
+    
+    // Animate steps progressively - much slower timing
+    setTimeout(() => setProcessingSteps(1), 1500);
+    setTimeout(() => setProcessingSteps(2), 3500);
+    setTimeout(() => setProcessingSteps(3), 5500);
+    
     try {
       const faceId = studentDbId;
 
@@ -340,6 +374,7 @@ export default function CreateStudentPage() {
       formDataObj.append("image", file);
       formDataObj.append("student_id", faceId);
 
+      setProcessingStatus("🔍 Detecting face in photo...");
       const response = await fetch("http://localhost:8000/enroll/", {
         method: "POST",
         body: formDataObj,
@@ -349,6 +384,10 @@ export default function CreateStudentPage() {
         throw new Error("Face enrollment failed");
       }
 
+      setProcessingStatus("🧬 Extracting facial features...");
+      await new Promise((resolve) => setTimeout(resolve, 500));
+
+      setProcessingStatus("💾 Saving to database...");
       // Update student record with face ID
       await fetch("/api/students/update-biometric", {
         method: "POST",
@@ -375,6 +414,8 @@ export default function CreateStudentPage() {
       });
     } finally {
       setIsProcessing(false);
+      setProcessingStatus("");
+      setProcessingSteps(0);
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
       }
@@ -395,6 +436,24 @@ export default function CreateStudentPage() {
     setFingerprintMessage("🔌 Connecting to sensor...")
     setFingerprintStep(0)
     setIsProcessing(true)
+    setProcessingStatus("🔌 Connecting to sensor...")
+    setProcessingSteps(0)
+
+    // Simulate Arduino steps appearing progressively
+    setTimeout(() => {
+      setProcessingSteps(1)
+      setProcessingStatus(" Place finger")
+    }, 1500)
+    
+    setTimeout(() => {
+      setProcessingSteps(2)
+      setProcessingStatus(" Remove finger")
+    }, 5000)
+    
+    setTimeout(() => {
+      setProcessingSteps(3)
+      setProcessingStatus(" Place SAME finger again")
+    }, 7500)
 
     try {
       // Start enrollment request
@@ -410,25 +469,12 @@ export default function CreateStudentPage() {
       const data = await response.json()
       console.log("📡 Fingerprint response:", data)
 
-      // Parse Arduino messages to show progress
-      if (data.message) {
-        const message = data.message.toLowerCase()
-        if (message.includes("place finger") && !message.includes("again")) {
-          setFingerprintStep(1)
-          setFingerprintMessage("👉 Place your finger on the sensor")
-        } else if (message.includes("remove finger")) {
-          setFingerprintStep(2)
-          setFingerprintMessage("✋ Remove your finger")
-        } else if (message.includes("place same finger again") || message.includes("place finger again")) {
-          setFingerprintStep(3)
-          setFingerprintMessage("👉 Place the SAME finger again")
-        }
-      }
-
       if (data.success) {
         setFingerprintStatus("success")
-        setFingerprintStep(0)
+        setFingerprintStep(4)
         setFingerprintMessage("🎉 Fingerprint enrolled successfully!")
+        setProcessingSteps(4)
+        setProcessingStatus("🎉 Fingerprint Enrollment SUCCESS")
 
         await fetch('/api/students/update-biometric', {
           method: 'POST',
@@ -445,6 +491,13 @@ export default function CreateStudentPage() {
           title: "Success",
           description: "Fingerprint enrolled successfully!",
         })
+        
+        // Clear overlay after success
+        setTimeout(() => {
+          setIsProcessing(false)
+          setProcessingStatus("")
+          setProcessingSteps(0)
+        }, 2000)
       } else {
         setFingerprintStatus("error")
         setFingerprintStep(0)
@@ -455,6 +508,9 @@ export default function CreateStudentPage() {
           description: data.error || "Fingerprint enrollment failed.",
           variant: "destructive",
         })
+        setIsProcessing(false)
+        setProcessingStatus("")
+        setProcessingSteps(0)
       }
     } catch (error) {
       setFingerprintStatus("error")
@@ -466,8 +522,9 @@ export default function CreateStudentPage() {
         description: "Failed to connect to fingerprint service.",
         variant: "destructive",
       });
-    } finally {
       setIsProcessing(false)
+      setProcessingStatus("")
+      setProcessingSteps(0)
     }
   };
 
@@ -712,7 +769,7 @@ export default function CreateStudentPage() {
                         </div>
                       )}
 
-                      {showWebcam && !faceEnrolled && (
+                      {showWebcam && !faceEnrolled && !processingStatus && (
                         <p className="text-sm text-[#64748B] text-center max-w-xs">
                           Please look at the camera. Capturing multiple angles...
                         </p>
@@ -974,10 +1031,104 @@ export default function CreateStudentPage() {
         </div>
       </div>
 
+      {/* Full Page Processing Overlay */}
+      {isProcessing && processingStatus && (
+        <div className="fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-center justify-center">
+          {/* Animated Loading Bar */}
+          <div className="absolute top-0 left-0 right-0 h-1 bg-gray-800">
+            <div className="h-full bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 animate-[loading_2s_ease-in-out_infinite]"></div>
+          </div>
+          
+          <div className="w-full max-w-4xl mx-8">
+            <div className="space-y-16">
+              <div className="text-center mb-20">
+                <h3 className="text-7xl font-bold text-white tracking-wide">
+                  {!faceEnrolled ? "PROCESSING EMBEDDINGS" : "FINGERPRINT ENROLLMENT"}
+                </h3>
+                {/* Spinning loader */}
+                <div className="flex justify-center mt-8">
+                  <div className="w-16 h-16 border-4 border-white/20 border-t-white rounded-full animate-spin"></div>
+                </div>
+              </div>
+              
+              {/* Face Enrollment Steps */}
+              {!faceEnrolled && (
+                <div className="space-y-10">
+                  <div className={`transition-all duration-1000 ease-out transform ${processingSteps >= 1 ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'}`}>
+                    <div className="flex items-center gap-8">
+                      <div className={`w-6 h-6 rounded-full transition-all duration-700 ${processingSteps >= 1 ? 'bg-green-400 shadow-lg shadow-green-400/50 scale-100' : 'bg-gray-600 scale-75'}`}></div>
+                      <span className="text-4xl font-medium text-white/90">Detecting facial landmarks</span>
+                    </div>
+                  </div>
+
+                  <div className={`transition-all duration-1000 ease-out transform ${processingSteps >= 2 ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'}`}>
+                    <div className="flex items-center gap-8">
+                      <div className={`w-6 h-6 rounded-full transition-all duration-700 ${processingSteps >= 2 ? 'bg-green-400 shadow-lg shadow-green-400/50 scale-100' : 'bg-gray-600 scale-75'}`}></div>
+                      <span className="text-4xl font-medium text-white/90">Extracting 512-dimension features</span>
+                    </div>
+                  </div>
+
+                  <div className={`transition-all duration-1000 ease-out transform ${processingSteps >= 3 ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'}`}>
+                    <div className="flex items-center gap-8">
+                      <div className={`w-6 h-6 rounded-full transition-all duration-700 ${processingSteps >= 3 ? 'bg-yellow-400 shadow-lg shadow-yellow-400/50 scale-100 animate-pulse' : 'bg-gray-600 scale-75'}`}></div>
+                      <span className="text-4xl font-medium text-white/90">Generating ArcFace embeddings</span>
+                    </div>
+                  </div>
+
+                  <div className={`transition-all duration-1000 ease-out transform ${processingSteps >= 4 ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'}`}>
+                    <div className="flex items-center gap-8">
+                      <div className={`w-6 h-6 rounded-full transition-all duration-700 ${processingSteps >= 4 ? 'bg-blue-400 shadow-lg shadow-blue-400/50 scale-100' : 'bg-gray-600 scale-75'}`}></div>
+                      <span className="text-4xl font-medium text-white/70">Storing to vector database</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              {/* Fingerprint Enrollment Steps */}
+              {faceEnrolled && (
+                <div className="space-y-10">
+                  <div className={`transition-all duration-1000 ease-out transform ${processingSteps >= 1 ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'}`}>
+                    <div className="flex items-center gap-8">
+                      <div className={`w-6 h-6 rounded-full transition-all duration-700 ${processingSteps >= 1 ? 'bg-blue-400 shadow-lg shadow-blue-400/50 scale-100' : 'bg-gray-600 scale-75'}`}></div>
+                      <span className="text-4xl font-medium text-white/90">👉 Place finger</span>
+                    </div>
+                  </div>
+
+                  <div className={`transition-all duration-1000 ease-out transform ${processingSteps >= 2 ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'}`}>
+                    <div className="flex items-center gap-8">
+                      <div className={`w-6 h-6 rounded-full transition-all duration-700 ${processingSteps >= 2 ? 'bg-yellow-400 shadow-lg shadow-yellow-400/50 scale-100' : 'bg-gray-600 scale-75'}`}></div>
+                      <span className="text-4xl font-medium text-white/90">✋ Remove finger</span>
+                    </div>
+                  </div>
+
+                  <div className={`transition-all duration-1000 ease-out transform ${processingSteps >= 3 ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'}`}>
+                    <div className="flex items-center gap-8">
+                      <div className={`w-6 h-6 rounded-full transition-all duration-700 ${processingSteps >= 3 ? 'bg-blue-400 shadow-lg shadow-blue-400/50 scale-100 animate-pulse' : 'bg-gray-600 scale-75'}`}></div>
+                      <span className="text-4xl font-medium text-white/90">👉 Place SAME finger again</span>
+                    </div>
+                  </div>
+
+                  <div className={`transition-all duration-1000 ease-out transform ${processingSteps >= 4 ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'}`}>
+                    <div className="flex items-center gap-8">
+                      <div className={`w-6 h-6 rounded-full transition-all duration-700 ${processingSteps >= 4 ? 'bg-green-400 shadow-lg shadow-green-400/50 scale-100' : 'bg-gray-600 scale-75'}`}></div>
+                      <span className="text-4xl font-medium text-white/90">🎉 Fingerprint Enrollment SUCCESS</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       <style jsx global>{`
         @keyframes scan {
           0%, 100% { transform: translateY(0); }
           50% { transform: translateY(192px); }
+        }
+        @keyframes loading {
+          0% { transform: translateX(-100%); }
+          100% { transform: translateX(100%); }
         }
       `}</style>
     </PageContainer>
