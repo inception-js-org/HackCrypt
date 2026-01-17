@@ -22,6 +22,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { useToast } from "@/hooks/use-toast"
+import AttendanceCamera from "@/components/attendance-camera"
 
 interface ClassInfo {
   id: number
@@ -82,7 +83,6 @@ export default function TeacherTimetablePage() {
   const [recognizedStudents, setRecognizedStudents] = useState<Set<number>>(new Set())
   const [fingerprintVerified, setFingerprintVerified] = useState<Set<number>>(new Set())
   
-  const videoRef = useRef<HTMLImageElement>(null)
   const timerRef = useRef<NodeJS.Timeout | null>(null)
   const recognitionIntervalRef = useRef<NodeJS.Timeout | null>(null)
   
@@ -127,8 +127,37 @@ export default function TeacherTimetablePage() {
 
   const fetchClassStudents = async (classId: number) => {
     try {
+      console.log("📚 Fetching students for class ID:", classId)
       const response = await fetch(`/api/students/by-class?classId=${classId}`)
+      
+      if (!response.ok) {
+        console.error("❌ Failed to fetch students:", response.status, response.statusText)
+        const errorText = await response.text()
+        console.error("Error details:", errorText)
+        toast({
+          title: "Error",
+          description: "Failed to load class students",
+          variant: "destructive",
+        })
+        return
+      }
+      
       const data = await response.json()
+      console.log("✅ Students fetched:", data.students?.length || 0, "students")
+      
+      // Log each student individually for clarity
+      if (data.students && data.students.length > 0) {
+        console.log("📋 CLASS ROSTER:")
+        data.students.forEach((s: Student) => {
+          console.log(`  👤 ${s.firstName} ${s.lastName}`)
+          console.log(`     • Database ID: ${s.id}`)
+          console.log(`     • Face ID: ${s.faceId || 'NULL ⚠️'}`)
+          console.log(`     • Fingerprint ID: ${s.fingerprintId || 'NULL'}`)
+        })
+      } else {
+        console.warn("⚠️ No students found in this class!")
+      }
+      
       setClassStudents(data.students || [])
     } catch (error) {
       console.error("Error fetching students:", error)
@@ -225,9 +254,6 @@ export default function TeacherTimetablePage() {
           })
         }, 1000)
 
-        // Start face recognition polling
-        startFaceRecognition(session.id)
-
         toast({ title: "Session Started", description: "Attendance marking is now active" })
       }
     } catch (error) {
@@ -243,9 +269,8 @@ export default function TeacherTimetablePage() {
     if (!activeSession) return
 
     try {
-      // Stop timers
+      // Stop timer
       if (timerRef.current) clearInterval(timerRef.current)
-      if (recognitionIntervalRef.current) clearInterval(recognitionIntervalRef.current)
 
       const response = await fetch(`/api/sessions/${activeSession.id}`, {
         method: "PATCH",
@@ -271,34 +296,84 @@ export default function TeacherTimetablePage() {
     }
   }
 
-  const startFaceRecognition = (sessionId: number) => {
-    // Poll the identify endpoint every 2 seconds
-    recognitionIntervalRef.current = setInterval(async () => {
-      try {
-        const response = await fetch("http://localhost:8000/identify/webcam", {
-          method: "POST",
-        })
-        const data = await response.json()
-
-        if (data.status === "success" && data.identities) {
-          for (const identity of data.identities as IdentityResult[]) {
-            if (identity.matched && identity.identity !== "Unknown") {
-              // Find student by faceId
-              const student = classStudents.find(
-                (s) => s.faceId === identity.identity
-              )
-              
-              if (student && !recognizedStudents.has(student.id)) {
-                await recordAttendance(sessionId, student.id, "face", identity.confidence)
-              }
-            }
-          }
-        }
-      } catch (error) {
-        console.error("Face recognition error:", error)
+  // Handler for attendance marked by camera component
+  const handleAttendanceMarked = useCallback(async (studentId: string, confidence: number) => {
+    if (!activeSession) {
+      console.log("⚠️ No active session")
+      return
+    }
+    
+    console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+    console.log("🎯 ATTENDANCE MARKING ATTEMPT")
+    console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+    console.log("📍 Detected student_id:", studentId, "(type:", typeof studentId, ")")
+    console.log("🎚️ Confidence:", confidence)
+    console.log("")
+    console.log("📋 CLASS ROSTER (", classStudents.length, "students ):")
+    classStudents.forEach(s => {
+      console.log(`  • ${s.firstName} ${s.lastName}`)
+      console.log(`    DB ID: ${s.id} (type: ${typeof s.id})`)
+      console.log(`    Face ID: ${s.faceId || 'NULL'} (type: ${typeof s.faceId})`)
+    })
+    console.log("")
+    
+    // Try multiple matching strategies
+    const studentIdNum = parseInt(studentId, 10)
+    console.log("🔍 Trying to match student_id:", studentId)
+    console.log("   Converted to number:", studentIdNum)
+    
+    // First, try to find in the current class
+    let student = classStudents.find((s) => {
+      const matchByFaceId = s.faceId === studentId
+      const matchByFaceIdString = s.faceId === String(studentIdNum)
+      const matchById = s.id === studentIdNum
+      const matchByIdString = String(s.id) === studentId
+      
+      console.log(`   Checking ${s.firstName}: faceId=${matchByFaceId}, faceIdStr=${matchByFaceIdString}, id=${matchById}, idStr=${matchByIdString}`)
+      
+      return matchByFaceId || matchByFaceIdString || matchById || matchByIdString
+    })
+    
+    console.log("")
+    if (student) {
+      console.log("✅ MATCH FOUND IN CLASS:", student.firstName, student.lastName, "(DB ID:", student.id, ")")
+      
+      if (recognizedStudents.has(student.id)) {
+        console.log("⚠️ Student already recognized (duplicate)")
+        console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+        return
       }
-    }, 2000)
-  }
+      
+      console.log("📝 Calling recordAttendance...")
+      console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+      await recordAttendance(activeSession.id, student.id, "face", confidence)
+    } else {
+      // Student not in class - try to fetch from database by ID and mark attendance anyway
+      console.warn("⚠️ Student NOT in expected class roster")
+      console.warn("   This student may be enrolled but assigned to a different class")
+      console.warn("   Attempting to mark attendance using database ID:", studentIdNum)
+      
+      // Check if already marked using the numeric ID
+      if (recognizedStudents.has(studentIdNum)) {
+        console.log("⚠️ Student already recognized (duplicate)")
+        console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+        return
+      }
+      
+      console.log("📝 Calling recordAttendance with database ID:", studentIdNum)
+      console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+      
+      // Try to record attendance anyway - the backend will validate
+      await recordAttendance(activeSession.id, studentIdNum, "face", confidence)
+      
+      // Show a warning toast
+      toast({
+        title: "Student Not in Class",
+        description: `Student ID ${studentIdNum} detected but not in this class roster`,
+        variant: "destructive",
+      })
+    }
+  }, [activeSession, classStudents, recognizedStudents, toast])
 
   const recordAttendance = async (
     sessionId: number,
@@ -307,29 +382,47 @@ export default function TeacherTimetablePage() {
     confidence?: number
   ) => {
     try {
+      console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+      console.log("📝 RECORDING ATTENDANCE")
+      console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+      console.log("Session ID:", sessionId)
+      console.log("Student ID:", studentId)
+      console.log("Type:", type)
+      console.log("Confidence:", confidence)
+      
       // Check for duplicates
       if (type === "face" && recognizedStudents.has(studentId)) {
-        console.log("Duplicate face recognition ignored for student:", studentId)
+        console.log("⚠️ Duplicate face recognition ignored for student:", studentId)
+        console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
         return
       }
       if (type === "fingerprint" && fingerprintVerified.has(studentId)) {
-        console.log("Duplicate fingerprint ignored for student:", studentId)
+        console.log("⚠️ Duplicate fingerprint ignored for student:", studentId)
+        console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
         return
       }
 
+      console.log("🚀 Sending POST to /api/attendance...")
+      const requestBody = {
+        sessionId,
+        studentId,
+        type,
+        confidence: confidence ? Math.round(confidence * 100) : undefined,
+      }
+      console.log("Request body:", JSON.stringify(requestBody, null, 2))
+      
       const response = await fetch("/api/attendance", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          sessionId,
-          studentId,
-          type,
-          confidence: confidence ? Math.round(confidence * 100) : undefined,
-        }),
+        body: JSON.stringify(requestBody),
       })
+
+      console.log("📡 Response status:", response.status, response.ok ? "✅" : "❌")
 
       if (response.ok) {
         const record = await response.json()
+        console.log("✅ Attendance recorded successfully!")
+        console.log("Record:", record)
         
         // Update local state
         if (type === "face") {
@@ -346,9 +439,15 @@ export default function TeacherTimetablePage() {
           title: type === "face" ? "Face Recognized" : "Fingerprint Verified",
           description: `${student?.firstName} ${student?.lastName}`,
         })
+        console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+      } else {
+        const errorData = await response.json()
+        console.error("❌ Error response:", errorData)
+        console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
       }
     } catch (error) {
-      console.error("Error recording attendance:", error)
+      console.error("❌ Exception recording attendance:", error)
+      console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
     }
   }
 
@@ -622,24 +721,10 @@ export default function TeacherTimetablePage() {
               {/* Face Recognition Feed */}
               <div className="space-y-4">
                 <h3 className="font-semibold text-black">Face Recognition</h3>
-                <div className="relative bg-gray-900 rounded-lg overflow-hidden aspect-video">
-                  <img
-                    ref={videoRef}
-                    src="http://localhost:8000/video_feed?mode=identify"
-                    alt="Live Camera Feed"
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).style.display = "none"
-                    }}
-                  />
-                  <div className="absolute top-4 right-4 bg-red-500 text-white px-3 py-1 rounded-full text-sm font-semibold flex items-center gap-2">
-                    <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
-                    LIVE
-                  </div>
-                </div>
-                <p className="text-sm text-[#64748B]">
-                  {recognizedStudents.size} faces recognized
-                </p>
+                <AttendanceCamera 
+                  sessionId={activeSession.id}
+                  onAttendanceMarked={handleAttendanceMarked}
+                />
               </div>
 
               {/* Fingerprint Status */}

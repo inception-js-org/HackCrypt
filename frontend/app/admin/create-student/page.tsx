@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { PageContainer } from "@/components/page-container";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -75,8 +75,40 @@ export default function CreateStudentPage() {
   >("idle");
   const [fingerprintMessage, setFingerprintMessage] = useState("");
   const [fingerprintSlotId, setFingerprintSlotId] = useState(0);
+  
+  // ✅ Add state for recent students
+  const [recentStudents, setRecentStudents] = useState<any[]>([]);
 
-  // Map DB ID to fingerprint slot (1-127)
+  // ✅ Fetch recent students on component mount
+  useEffect(() => {
+    const fetchRecentStudents = async () => {
+      try {
+        const response = await fetch('/api/students/recent');
+        if (response.ok) {
+          const data = await response.json();
+          setRecentStudents(data.students || []);
+        }
+      } catch (error) {
+        console.error('Error fetching recent students:', error);
+      }
+    };
+
+    fetchRecentStudents();
+  }, []);
+
+  // ✅ Refresh recent students after completing registration
+  const refreshRecentStudents = async () => {
+    try {
+      const response = await fetch('/api/students/recent');
+      if (response.ok) {
+        const data = await response.json();
+        setRecentStudents(data.students || []);
+      }
+    } catch (error) {
+      console.error('Error refreshing recent students:', error);
+    }
+  };
+
   const mapToSlot = (dbId: number) => {
     return ((dbId - 1) % 127) + 1;
   };
@@ -182,8 +214,6 @@ export default function CreateStudentPage() {
     setIsProcessing(true);
 
     try {
-      const faceId = studentDbId;
-
       // Poll for enrollment completion
       let completed = false;
       let attempts = 0;
@@ -195,7 +225,7 @@ export default function CreateStudentPage() {
         await new Promise((resolve) => setTimeout(resolve, 1000)); // Wait 1 second
 
         const statusResponse = await fetch(
-          `http://localhost:8000/enroll/webcam/status?student_id=${faceId}`
+          `http://localhost:8000/enroll/webcam/status?student_id=${studentDbId}`
         );
         const status = await statusResponse.json();
 
@@ -217,7 +247,7 @@ export default function CreateStudentPage() {
       // Finalize enrollment
       console.log("💾 Finalizing enrollment in Pinecone...");
       const response = await fetch(
-        `http://localhost:8000/enroll/webcam?student_id=${faceId}`,
+        `http://localhost:8000/enroll/webcam?student_id=${studentDbId}`,
         {
           method: "POST",
         }
@@ -232,16 +262,19 @@ export default function CreateStudentPage() {
       const data = await response.json();
       console.log("✅ Enrollment response:", data);
 
+      // ✅ Extract face_id from response (should be same as student_id)
+      const faceId = data.face_id || data.student_id || studentDbId;
+      
       // Update student record with face ID
-      console.log("📝 Updating database with face_id:", data.face_id);
+      console.log("📝 Updating database with face_id:", faceId);
       const dbResponse = await fetch("/api/students/update-biometric", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          studentDbId,
-          faceId: data.face_id,
+          studentDbId: parseInt(studentDbId),  // ✅ Convert to number
+          faceId: faceId,  // ✅ Use extracted face_id
         }),
       });
 
@@ -256,7 +289,7 @@ export default function CreateStudentPage() {
 
       toast({
         title: "Success",
-        description: `Face captured successfully! (${data.samples} samples collected)`,
+        description: `Face captured successfully! Face ID: ${faceId}`,
       });
     } catch (error) {
       console.error("❌ Face capture error:", error);
@@ -273,6 +306,7 @@ export default function CreateStudentPage() {
       setShowWebcam(false);
     }
   };
+
 
   const handleUploadPhoto = async (
     event: React.ChangeEvent<HTMLInputElement>
@@ -454,6 +488,9 @@ export default function CreateStudentPage() {
         title: "Success",
         description: "Student created successfully! Invitation email sent.",
       });
+
+      // ✅ Refresh recent students list
+      await refreshRecentStudents();
 
       // Reset form
       setFormData({
@@ -769,16 +806,36 @@ export default function CreateStudentPage() {
         <div className="hidden lg:block">
           <h2 className="text-2xl font-bold mb-4">Recent Students</h2>
           <div className="space-y-4">
-            {recentStudents.map((student) => (
-              <div
-                key={student.id}
-                className="p-4 bg-[#F8FAFC] rounded-lg shadow"
-              >
-                <p className="text-[#374151] font-semibold">{student.name}</p>
-                <p className="text-[#6B7280]">{student.email}</p>
-                <p className="text-[#6B7280]">{student.class}</p>
-              </div>
-            ))}
+            {recentStudents.length > 0 ? (
+              recentStudents.map((student) => (
+                <div
+                  key={student.id}
+                  className="p-4 bg-[#F8FAFC] rounded-lg shadow"
+                >
+                  <p className="text-[#374151] font-semibold">
+                    {student.firstName} {student.lastName}
+                  </p>
+                  <p className="text-[#6B7280]">{student.email}</p>
+                  <p className="text-[#6B7280]">Class: {student.class}</p>
+                  <div className="mt-2 flex gap-2">
+                    {student.faceId && (
+                      <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">
+                        Face: ✓
+                      </span>
+                    )}
+                    {student.fingerprintId && (
+                      <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
+                        Fingerprint: ✓
+                      </span>
+                    )}
+                  </div>
+                </div>
+              ))
+            ) : (
+              <p className="text-[#6B7280] text-center py-8">
+                No recent students
+              </p>
+            )}
           </div>
         </div>
       </div>

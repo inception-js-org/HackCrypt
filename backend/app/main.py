@@ -5,11 +5,24 @@ import cv2
 import time
 import numpy as np
 import threading
-from app.services.face_embedding import FaceEmbedder
+import logging
+from collections import defaultdict
+from typing import Dict, List
+
+from app.core.startup import on_startup, on_shutdown, get_embedder
+from app.services.embedding_cache import embedding_cache
 from app.core.pinecone_client import index
 from app.api import enroll, identify, fingerprint
 
-app = FastAPI()
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+
+logger = logging.getLogger(__name__)
+
+app = FastAPI(title="HackCrypt Attendance System")
 
 # CORS
 app.add_middleware(
@@ -22,12 +35,40 @@ app.add_middleware(
 
 # Track enrollment sessions
 enrollment_sessions = {}
-embedder = FaceEmbedder()
+
+# Verification buffer for robust recognition
+# Structure: {session_id: {student_id: [confidence_scores]}}
+verification_buffer: Dict[int, Dict[str, List[float]]] = defaultdict(lambda: defaultdict(list))
+
+# Track marked students to prevent duplicates
+# Structure: {session_id: {student_id: timestamp}}
+marked_students: Dict[int, Dict[str, float]] = defaultdict(dict)
+
+# Configuration
+CONFIDENCE_THRESHOLD = 0.55
+VERIFICATION_COUNT = 3  # Require 3 detections before marking
+COOLDOWN_SECONDS = 600  # 10 minutes cooldown
+
 app.include_router(enroll.router, prefix="/enroll", tags=["Enrollment"])
 app.include_router(identify.router, prefix="/identify", tags=["Identification"])
 app.include_router(fingerprint.router, prefix="/api/fingerprint", tags=["Fingerprint"])
 
 MATCH_THRESHOLD = 0.55
+
+
+# Startup and shutdown events
+@app.on_event("startup")
+async def startup_event():
+    """Initialize system on startup."""
+    await on_startup()
+    logger.info("Application startup complete")
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Cleanup on shutdown."""
+    await on_shutdown()
+    logger.info("Application shutdown complete")
 
 # ============== SHARED CAMERA MANAGER ==============
 class CameraManager:
@@ -318,6 +359,9 @@ async def start_webcam_enrollment(student_id: str = Query(...)):
 
 def generate_enrollment_frames(student_id: str):
     """Generate video frames and collect face samples during enrollment"""
+    # Get the global embedder instance
+    embedder = get_embedder()
+    
     if not camera_manager.start():
         print("ERROR: Cannot start camera")
         # Yield an error frame
@@ -392,6 +436,8 @@ def generate_enrollment_frames(student_id: str):
                                   cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
                 except Exception as e:
                     print(f"Error detecting face: {e}")
+                    import traceback
+                    traceback.print_exc()
             
             # Add progress overlay
             progress = len(embeddings)
@@ -432,6 +478,8 @@ def generate_enrollment_frames(student_id: str):
         print(f"Client disconnected for student {student_id}")
     except Exception as e:
         print(f"Error during enrollment: {e}")
+        import traceback
+        traceback.print_exc()
     finally:
         camera_manager.stop()
         print(f"Camera released for student {student_id}")
@@ -439,6 +487,9 @@ def generate_enrollment_frames(student_id: str):
 def generate_identify_frames():
     """Generate video frames for identification mode with live recognition"""
     global identification_results
+    
+    # Get the global embedder instance
+    embedder = get_embedder()
     
     if not camera_manager.start():
         print("ERROR: Cannot start camera for identification")
@@ -498,27 +549,41 @@ def generate_identify_frames():
                         bbox = face.bbox.astype(int)
                         embedding = face.embedding / np.linalg.norm(face.embedding)
                         
-                        # Query Pinecone
-                        result = index.query(
-                            vector=embedding.tolist(),
-                            top_k=1,
-                            include_metadata=True
-                        )
+                        # Try local cache first
+                        cache_result = embedding_cache.search(embedding, top_k=1, threshold=MATCH_THRESHOLD)
                         
                         identity = "Unknown"
                         confidence = 0.0
+                        source = "none"
                         
-                        if result["matches"]:
-                            match = result["matches"][0]
-                            confidence = float(match["score"])
+                        if cache_result and len(cache_result) > 0:
+                            # Cache hit
+                            identity = cache_result[0]['student_id']
+                            confidence = cache_result[0]['score']
+                            source = "cache"
+                            logger.info(f"Cache hit: {identity} ({confidence:.3f})")
+                        else:
+                            # Cache miss - query Pinecone
+                            logger.info("Cache miss, querying Pinecone...")
+                            result = index.query(
+                                vector=embedding.tolist(),
+                                top_k=1,
+                                include_metadata=True
+                            )
                             
-                            if confidence >= MATCH_THRESHOLD:
-                                identity = str(match["id"])
+                            if result["matches"]:
+                                match = result["matches"][0]
+                                confidence = float(match["score"])
+                                
+                                if confidence >= MATCH_THRESHOLD:
+                                    identity = str(match["id"])
+                                    source = "pinecone"
                         
                         cached_faces.append({
                             'bbox': bbox.tolist(),
                             'identity': identity,
-                            'confidence': confidence
+                            'confidence': confidence,
+                            'source': source
                         })
                     
                     # Update global results for POST endpoint
@@ -528,6 +593,8 @@ def generate_identify_frames():
                         
                 except Exception as e:
                     print(f"Error in identification: {e}")
+                    import traceback
+                    traceback.print_exc()
             
             # Draw cached face results on frame
             for face_data in cached_faces:
@@ -536,16 +603,28 @@ def generate_identify_frames():
                     bbox = bbox.tolist()
                 identity = face_data['identity']
                 confidence = face_data['confidence']
+                source = face_data.get('source', 'none')
+                
                 color = (0, 255, 0) if identity != "Unknown" else (0, 0, 255)
                 
                 cv2.rectangle(frame, (bbox[0], bbox[1]), (bbox[2], bbox[3]), color, 2)
                 label = f"{identity} ({confidence:.2f})"
                 cv2.putText(frame, label, (bbox[0], bbox[1]-10),
                           cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2)
+                
+                # Show source (cache/pinecone)
+                if source != 'none':
+                    cv2.putText(frame, f"[{source}]", (bbox[0], bbox[3]+20),
+                              cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
             
             # Add identification mode indicator
             cv2.putText(frame, "IDENTIFICATION MODE", (10, 30),
                        cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
+            
+            # Show cache stats
+            cache_stats = embedding_cache.get_stats()
+            cv2.putText(frame, f"Cache: {cache_stats['total_embeddings']} embeddings", (10, 460),
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
             
             ret, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 85])
             if not ret:
@@ -561,6 +640,8 @@ def generate_identify_frames():
         print("Client disconnected from identification feed")
     except Exception as e:
         print(f"Error in identification stream: {e}")
+        import traceback
+        traceback.print_exc()
     finally:
         camera_manager.stop()
         print("Camera released from identification mode")
@@ -596,54 +677,57 @@ async def get_latest_identification():
 @app.post("/enroll/webcam")
 async def enroll_webcam(student_id: str = Query(...)):
     """Complete enrollment by storing embeddings to Pinecone"""
-    print(f"💾 Completing enrollment for student: {student_id}")
-    
-    # Check if session exists
     if student_id not in enrollment_sessions:
-        raise HTTPException(status_code=400, detail="No enrollment session found. Please start video feed first.")
+        raise HTTPException(status_code=404, detail="No enrollment session found")
     
     session = enrollment_sessions[student_id]
     
-    if not session.get('completed', False):
-        raise HTTPException(status_code=400, detail="Enrollment not completed. Please wait for all samples to be collected.")
+    if not session.get('completed'):
+        raise HTTPException(status_code=400, detail="Enrollment not completed yet")
     
     embeddings = session.get('embeddings', [])
     
-    if len(embeddings) == 0:
-        raise HTTPException(status_code=400, detail="No face detected during enrollment")
+    if len(embeddings) < 5:
+        raise HTTPException(status_code=400, detail=f"Not enough samples: {len(embeddings)}/15")
     
-    print(f"Averaging {len(embeddings)} embeddings...")
-    
-    # Calculate average embedding
-    avg_embedding = np.mean(embeddings, axis=0)
-    avg_embedding = avg_embedding / np.linalg.norm(avg_embedding)  # Normalize
-    avg_embedding_list = avg_embedding.tolist()
-    
-    print(f"Storing 1 averaged embedding to Pinecone...")
-    
-    # Store only ONE averaged embedding in Pinecone
     try:
-        index.upsert(vectors=[{
-            "id": student_id,
-            "values": avg_embedding_list,
-            "metadata": {"student_id": student_id, "type": "student"}
-        }])
-        print(f"✅ Successfully stored averaged embedding in Pinecone")
+        # Average all embeddings
+        final_embedding = np.mean(embeddings, axis=0)
+        final_embedding = (final_embedding / np.linalg.norm(final_embedding)).tolist()
+        
+        # Store in Pinecone with student_id as the vector ID
+        index.upsert([
+            (
+                str(student_id),  # Use student DB ID as Pinecone ID
+                final_embedding,
+                {"type": "student"}
+            )
+        ])
+        
+        # Add to local cache immediately
+        embedding_cache.add_embedding(
+            student_id=str(student_id),
+            embedding=np.array(final_embedding),
+            metadata={"type": "student"}
+        )
+        
+        logger.info(f"✅ Enrolled student {student_id} with {len(embeddings)} samples")
+        
+        # Clean up session
+        del enrollment_sessions[student_id]
+        
+        return {
+            "status": "success",
+            "message": "Student enrolled successfully",
+            "student_id": str(student_id),  # ✅ This should match DB ID
+            "face_id": str(student_id),  # ✅ Added face_id field
+            "samples": len(embeddings),
+            "vectors_stored": 1
+        }
+        
     except Exception as e:
-        print(f"❌ Error storing vector: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to store embedding: {str(e)}")
-    
-    # Clean up session
-    del enrollment_sessions[student_id]
-    
-    return {
-        "message": "Face enrolled successfully",
-        "student_id": student_id,
-        "samples": len(embeddings),
-        "samples_averaged": len(embeddings),
-        "vectors_stored": 1,
-        "face_id": student_id  # Return face_id for frontend
-    }
+        logger.error(f"Error enrolling student: {e}")
+        raise HTTPException(status_code=500, detail=f"Enrollment failed: {str(e)}")
 
 @app.get("/enroll/webcam/status")
 async def check_enrollment_status(student_id: str = Query(...)):
@@ -657,3 +741,105 @@ async def check_enrollment_status(student_id: str = Query(...)):
         "samples": session.get('samples', 0),
         "completed": session.get('completed', False)
     }
+
+
+# ============== VERIFICATION BUFFER HELPERS ==============
+
+def add_to_verification_buffer(session_id: int, student_id: str, confidence: float) -> bool:
+    """
+    Add a detection to the verification buffer.
+    Returns True if student should be marked (passed verification).
+    
+    Args:
+        session_id: Session ID for attendance
+        student_id: Student identifier
+        confidence: Recognition confidence score
+        
+    Returns:
+        bool: True if verification passed and attendance should be marked
+    """
+    # Add confidence score to buffer
+    verification_buffer[session_id][student_id].append(confidence)
+    
+    # Keep only last VERIFICATION_COUNT scores
+    if len(verification_buffer[session_id][student_id]) > VERIFICATION_COUNT:
+        verification_buffer[session_id][student_id] = \
+            verification_buffer[session_id][student_id][-VERIFICATION_COUNT:]
+    
+    # Check if we have enough detections
+    if len(verification_buffer[session_id][student_id]) >= VERIFICATION_COUNT:
+        # Calculate average confidence
+        avg_confidence = np.mean(verification_buffer[session_id][student_id])
+        
+        logger.info(
+            f"Verification check - Student: {student_id}, "
+            f"Detections: {len(verification_buffer[session_id][student_id])}, "
+            f"Avg confidence: {avg_confidence:.3f}"
+        )
+        
+        # Check if average meets threshold
+        if avg_confidence >= CONFIDENCE_THRESHOLD:
+            # Check for duplicates and cooldown
+            if should_mark_attendance(session_id, student_id):
+                # Clear buffer for this student
+                verification_buffer[session_id][student_id].clear()
+                return True
+    
+    return False
+
+
+def should_mark_attendance(session_id: int, student_id: str) -> bool:
+    """
+    Check if attendance should be marked for this student.
+    Prevents duplicates and enforces cooldown.
+    
+    Args:
+        session_id: Session ID for attendance
+        student_id: Student identifier
+        
+    Returns:
+        bool: True if attendance can be marked
+    """
+    current_time = time.time()
+    
+    # Check if already marked in this session
+    if student_id in marked_students[session_id]:
+        last_marked_time = marked_students[session_id][student_id]
+        
+        # Check cooldown
+        if current_time - last_marked_time < COOLDOWN_SECONDS:
+            logger.info(
+                f"Cooldown active for student {student_id} "
+                f"(marked {int(current_time - last_marked_time)}s ago)"
+            )
+            return False
+    
+    # Mark as attended
+    marked_students[session_id][student_id] = current_time
+    logger.info(f"✅ Attendance marked for student {student_id} in session {session_id}")
+    return True
+
+
+def clear_session_data(session_id: int):
+    """Clear verification buffer and marked students for a session."""
+    if session_id in verification_buffer:
+        del verification_buffer[session_id]
+    if session_id in marked_students:
+        del marked_students[session_id]
+    logger.info(f"Cleared session data for session {session_id}")
+
+
+@app.get("/health")
+async def health_check():
+    """Health check endpoint with system stats."""
+    embedder = get_embedder()
+    cache_stats = embedding_cache.get_stats()
+    
+    return {
+        "status": "healthy",
+        "cache": cache_stats,
+        "gpu_enabled": embedder.ctx_id == 0,
+        "active_sessions": len(verification_buffer),
+        "timestamp": time.time()
+    }
+
