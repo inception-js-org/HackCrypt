@@ -1,213 +1,175 @@
-# Unified Identity Verification System
+<div align="center">
 
-A full-stack AI-based identity verification platform designed for secure attendance and presence validation using computer vision and multi-factor authentication concepts.
+# 🔐 HackCrypt
 
-## 🎯 Features
+### Unified Identity Verification System
 
-- **Face Recognition**: AI-powered face detection for attendance
-- **Fingerprint Detection**: Biometric verification
-- **Smart Analytics**: Comprehensive attendance tracking
-- **Role-Based Access**: Student, Teacher, and Admin portals
-- **Secure Authentication**: Clerk + PostgreSQL integration
+A modern, AI-powered biometric attendance and identity verification platform built for educational institutions.
 
----
+[![Next.js](https://img.shields.io/badge/Next.js-15-black?logo=next.js)](https://nextjs.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-009688?logo=fastapi)](https://fastapi.tiangolo.com/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Neon-4169E1?logo=postgresql)](https://neon.tech/)
+[![Pinecone](https://img.shields.io/badge/Pinecone-Vector_DB-000000)](https://www.pinecone.io/)
 
-## 📁 Project Structure
-
-```
-unified-identity-verification/
-├── frontend/               # Next.js frontend
-│   ├── app/               # Next.js App Router
-│   │   ├── login/         # Authentication pages
-│   │   │   ├── choose-role/
-│   │   │   ├── sign-in/
-│   │   │   ├── sign-up/
-│   │   │   ├── set-role/
-│   │   │   └── api/       # API routes
-│   │   ├── student/       # Student dashboard
-│   │   ├── teacher/       # Teacher dashboard
-│   │   └── admin/         # Admin dashboard
-│   ├── db/                # Database schema & connection
-│   ├── components/        # UI components
-│   └── lib/               # Utilities & helpers
-├── backend/               # FastAPI backend (Python)
-│   ├── app/              # Backend application
-│   └── scripts/          # Face recognition scripts
-├── documentation/         # Project documentation
-└── README.md
-```
+</div>
 
 ---
 
-## 🚀 Quick Start
+## 📋 Overview
 
-### Frontend Setup (Next.js)
+HackCrypt is a full-stack identity verification platform that leverages computer vision and biometric authentication to streamline attendance tracking in educational environments. The system combines facial recognition with fingerprint verification to provide a secure, contactless, and efficient way to verify student and faculty presence.
 
-#### Prerequisites
+---
 
-- Node.js (v18+ recommended)
-- npm or pnpm
-- PostgreSQL database (Neon recommended)
-- Clerk account for authentication
+## ✨ Features
 
-#### Installation
+| Feature | Description |
+|---------|-------------|
+| **Facial Recognition** | Real-time face detection and matching using InsightFace and RetinaFace |
+| **Fingerprint Verification** | Hardware-integrated biometric authentication via Arduino |
+| **Video Attendance** | Batch processing of video feeds to detect and log multiple attendees |
+| **Role-Based Dashboards** | Dedicated portals for Students, Teachers, and Administrators |
+| **Smart Analytics** | Visual attendance reports, trends, and session insights |
+| **Secure Authentication** | OAuth-based auth with Clerk and PostgreSQL user management |
+| **Vector Search** | High-performance face embedding storage and similarity search with Pinecone |
 
-```bash
-cd frontend
+---
 
-# Install dependencies
-npm install
-# or
-pnpm install
+## 🛠️ Tech Stack
 
-# Copy environment file
-cp .env.example .env
-# Edit .env with your credentials
-```
+### Frontend
+- **Framework:** Next.js 15 (App Router)
+- **Styling:** Tailwind CSS, shadcn/ui
+- **Authentication:** Clerk
+- **Database ORM:** Drizzle ORM
+- **Language:** TypeScript
 
-#### Environment Variables
+### Backend
+- **Framework:** FastAPI (Python)
+- **Computer Vision:** InsightFace, RetinaFace, OpenCV
+- **ML/Embeddings:** ArcFace embeddings
+- **Vector Database:** Pinecone
+- **Hardware Integration:** Arduino (Fingerprint sensor)
 
-Update `.env` with your credentials:
+### Infrastructure
+- **Database:** PostgreSQL (Neon)
+- **Vector Store:** Pinecone
+- **Deployment:** Vercel (Frontend), Uvicorn (Backend)
 
-```env
-# Clerk Authentication
-NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=your_publishable_key
-CLERK_SECRET_KEY=your_secret_key
-NEXT_PUBLIC_CLERK_SIGN_IN_URL=/login/sign-in
-NEXT_PUBLIC_CLERK_SIGN_UP_URL=/login/sign-up
-NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL=/login/set-role
-NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL=/login/set-role
+---
 
-# PostgreSQL Database
-DATABASE_URL=postgresql://user:password@host:port/database?sslmode=require
-```
-
-#### Test Database Connection
-
-```bash
-npx tsx scripts/test-db-connection.ts
-```
-
-#### Run Development Server
-
-```bash
-npm run dev
-```
-
-### Access Frontend
+## 🏗️ Architecture
 
 ```
-http://localhost:3000
+┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
+│   Next.js App   │────▶│   FastAPI API   │────▶│    Pinecone     │
+│   (Frontend)    │     │   (Backend)     │     │  (Vector DB)    │
+└────────┬────────┘     └────────┬────────┘     └─────────────────┘
+         │                       │
+         ▼                       ▼
+┌─────────────────┐     ┌─────────────────┐
+│     Clerk       │     │   PostgreSQL    │
+│ (Authentication)│     │     (Neon)      │
+└─────────────────┘     └─────────────────┘
+```
+
+---
+
+## 🚀 Getting Started
+
+### Prerequisites
+
+- Node.js v18+
+- Python 3.10 (Conda recommended)
+- PostgreSQL database (Neon)
+- Clerk account
+- Pinecone account
+
+### Frontend Setup
+
+1. Navigate to the frontend directory and install dependencies:
+   ```bash
+   cd frontend && pnpm install
+   ```
+
+2. Configure environment variables in `.env`:
+   - Clerk API keys
+   - Database connection URL
+   - Backend API endpoint
+
+3. Run the development server:
+   ```bash
+   pnpm dev
+   ```
+
+4. Access at `http://localhost:3000`
+
+### Backend Setup
+
+1. Create and activate the Conda environment:
+   ```bash
+   conda create -n uiv python=3.10 -y && conda activate uiv
+   ```
+
+2. Install dependencies:
+   ```bash
+   cd backend && pip install -r requirements.txt
+   ```
+
+3. Configure environment variables for Pinecone and database connections.
+
+4. Start the API server:
+   ```bash
+   uvicorn app.main:app --reload
+   ```
+
+5. API available at `http://127.0.0.1:8000`
+
+---
+
+## 📂 Project Structure
+
+```
+HackCrypt/
+├── frontend/                # Next.js application
+│   ├── app/                 # App Router pages & API routes
+│   │   ├── admin/           # Admin dashboard
+│   │   ├── student/         # Student portal
+│   │   ├── teacher/         # Teacher portal
+│   │   └── login/           # Authentication pages
+│   ├── components/          # Reusable UI components
+│   ├── db/                  # Database schema & connection
+│   └── lib/                 # Utilities & helpers
+│
+├── backend/                 # FastAPI application
+│   ├── app/
+│   │   ├── api/             # REST API endpoints
+│   │   ├── services/        # Face embedding & caching
+│   │   └── core/            # Pinecone client & startup
+│   └── scripts/             # Enrollment & analysis utilities
+│
+└── public/                  # Static assets
 ```
 
 ---
 
 ## 🔐 Authentication Flow
 
-1. **Landing Page** → Click "Get Started"
-2. **Choose Role** → Select Student or Faculty
-3. **Sign Up/Sign In** → Complete Clerk authentication
-4. **Set Role** → Automatic sync to PostgreSQL
-5. **Dashboard** → Redirect to role-specific dashboard
-
-For detailed flow documentation, see [AUTHENTICATION_FLOW.md](./documentation/AUTHENTICATION_FLOW.md)
+1. **Landing** → User selects role (Student/Faculty)
+2. **Sign Up/In** → Clerk handles OAuth authentication
+3. **Role Sync** → User profile synced to PostgreSQL
+4. **Dashboard** → Redirected to role-specific portal
 
 ---
 
-## 🧠 Backend Setup (FastAPI + Conda)
+## 📄 License
 
-### Prerequisites
-
-- Anaconda or Miniconda
-- Python 3.9 or 3.10 (recommended for MediaPipe compatibility)
+This project is developed for educational and demonstration purposes.
 
 ---
 
-### 1️⃣ Create Conda Environment
+<div align="center">
 
-```bash
-conda create -n uiv python=3.10 -y
-```
+**Built with ❤️ by the HackCrypt Team**
 
-Activate the environment:
-
-```bash
-conda activate uiv
-```
-
----
-
-### 2️⃣ Install Backend Dependencies
-
-Navigate to the backend directory:
-
-```bash
-cd backend
-```
-
-## 📦 Python Dependencies
-
-All backend Python dependencies are listed in the `requirements.txt` file.
-
-### Install dependencies using pip
-
-```bash
-pip install -r requirements.txt
-
-```
-
-Install required Python packages:
-
-```bash
-pip install fastapi uvicorn mediapipe opencv-python numpy
-```
-
----
-
-### 3️⃣ Backend Folder Structure
-
-```
-backend/
-├── app/
-│   ├── main.py
-│   ├── api/
-│   ├── services/
-│   └── core/
-└── requirements.txt
-```
-
----
-
-## ▶️ Run Backend Server
-
-From the `backend/` directory with the Conda environment activated:
-
-```bash
-uvicorn app.main:app --reload
-```
-
-### Backend Server URL
-
-```
-http://127.0.0.1:8000
-```
-
----
-
-## 🛠 Common Commands
-
-### Frontend
-
-```bash
-npm install
-npm run dev
-```
-
-### Backend
-
-```bash
-conda activate uiv
-uvicorn app.main:app --reload
-```
-
----
+</div>
