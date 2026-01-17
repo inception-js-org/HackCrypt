@@ -552,7 +552,7 @@ def generate_identify_frames():
                         # Try local cache first
                         cache_result = embedding_cache.search(embedding, top_k=1, threshold=MATCH_THRESHOLD)
                         
-                        identity = "Unknown"
+                        identity = "Student"
                         confidence = 0.0
                         source = "none"
                         

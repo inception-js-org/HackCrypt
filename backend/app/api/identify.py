@@ -162,7 +162,7 @@ async def identify_student(
         if match_result['student_id']:
             face_result["student_id"] = match_result['student_id']
             face_result["confidence"] = float(round(match_result['score'], 3))
-            face_result["name"] = match_result['metadata'].get('name', 'Unknown')
+            face_result["name"] = match_result['metadata'].get('name', 'Student')
             face_result["source"] = match_result['source']
         
         results.append(face_result)
@@ -257,7 +257,7 @@ def identify_student_webcam():
         if match_result['student_id']:
             face_result["student_id"] = match_result['student_id']
             face_result["confidence"] = float(round(match_result['score'], 3))
-            face_result["name"] = match_result['metadata'].get('name', 'Unknown')
+            face_result["name"] = match_result['metadata'].get('name', 'Student')
             face_result["source"] = match_result['source']
         
         results.append(face_result)
