@@ -25,3 +25,5 @@ insightface
 onnxruntime-gpu
 opencv-contrib-python
 python-multipart
+psycopg2
+pyserial

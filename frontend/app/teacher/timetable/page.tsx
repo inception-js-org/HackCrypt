@@ -126,9 +126,10 @@ export default function TeacherTimetablePage() {
       const today = new Date().toISOString().split("T")[0]
       const response = await fetch(`/api/sessions?date=${today}`)
       const data = await response.json()
-      setSessions(data)
+      setSessions(Array.isArray(data) ? data : [])
     } catch (error) {
       console.error("Error fetching sessions:", error)
+      setSessions([])
     } finally {
       setIsLoading(false)
     }
