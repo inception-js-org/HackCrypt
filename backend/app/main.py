@@ -13,6 +13,7 @@ from app.core.startup import on_startup, on_shutdown, get_embedder
 from app.services.embedding_cache import embedding_cache
 from app.core.pinecone_client import index
 from app.api import enroll, identify, fingerprint
+from app.api.video_attendance import router as video_attendance_router
 
 # Configure logging
 logging.basicConfig(
@@ -52,6 +53,7 @@ COOLDOWN_SECONDS = 600  # 10 minutes cooldown
 app.include_router(enroll.router, prefix="/enroll", tags=["Enrollment"])
 app.include_router(identify.router, prefix="/identify", tags=["Identification"])
 app.include_router(fingerprint.router, prefix="/api/fingerprint", tags=["Fingerprint"])
+app.include_router(video_attendance_router, prefix="/api/video-attendance", tags=["Video Attendance"])
 
 MATCH_THRESHOLD = 0.55
 

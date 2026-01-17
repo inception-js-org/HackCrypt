@@ -23,6 +23,8 @@ import {
 } from "@/components/ui/dialog"
 import { useToast } from "@/hooks/use-toast"
 import AttendanceCamera from "@/components/attendance-camera"
+import { VideoAttendanceDialog } from "@/components/video-attendance-dialog"
+import { Video } from "lucide-react"
 
 interface ClassInfo {
   id: number
@@ -82,6 +84,10 @@ export default function TeacherTimetablePage() {
   const [timeRemaining, setTimeRemaining] = useState<number>(SESSION_TIME_LIMIT)
   const [recognizedStudents, setRecognizedStudents] = useState<Set<number>>(new Set())
   const [fingerprintVerified, setFingerprintVerified] = useState<Set<number>>(new Set())
+  
+  // Video attendance state
+  const [videoDialogOpen, setVideoDialogOpen] = useState(false)
+  const [selectedSessionForVideo, setSelectedSessionForVideo] = useState<Session | null>(null)
   
   const timerRef = useRef<NodeJS.Timeout | null>(null)
   const recognitionIntervalRef = useRef<NodeJS.Timeout | null>(null)
@@ -145,7 +151,6 @@ export default function TeacherTimetablePage() {
       const data = await response.json()
       console.log("✅ Students fetched:", data.students?.length || 0, "students")
       
-      // Log each student individually for clarity
       if (data.students && data.students.length > 0) {
         console.log("📋 CLASS ROSTER:")
         data.students.forEach((s: Student) => {
@@ -170,7 +175,6 @@ export default function TeacherTimetablePage() {
       const data = await response.json()
       setAttendanceRecords(data)
       
-      // Update recognized sets
       const faceSet = new Set<number>()
       const fpSet = new Set<number>()
       data.forEach((record: AttendanceRecord) => {
@@ -202,7 +206,7 @@ export default function TeacherTimetablePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           classId: parseInt(newSession.classId),
-          facultyId: 1, // TODO: Get from auth context
+          facultyId: 1,
           subject: newSession.subject,
           scheduledStartTime: `${today}T${newSession.startTime}:00`,
           scheduledEndTime: `${today}T${newSession.endTime}:00`,
@@ -243,7 +247,6 @@ export default function TeacherTimetablePage() {
           await fetchAttendance(session.id)
         }
 
-        // Start timer
         timerRef.current = setInterval(() => {
           setTimeRemaining((prev) => {
             if (prev <= 1000) {
@@ -269,7 +272,6 @@ export default function TeacherTimetablePage() {
     if (!activeSession) return
 
     try {
-      // Stop timer
       if (timerRef.current) clearInterval(timerRef.current)
 
       const response = await fetch(`/api/sessions/${activeSession.id}`, {
@@ -296,7 +298,6 @@ export default function TeacherTimetablePage() {
     }
   }
 
-  // Handler for attendance marked by camera component
   const handleAttendanceMarked = useCallback(async (studentId: string, confidence: number) => {
     if (!activeSession) {
       console.log("⚠️ No active session")
@@ -317,12 +318,10 @@ export default function TeacherTimetablePage() {
     })
     console.log("")
     
-    // Try multiple matching strategies
     const studentIdNum = parseInt(studentId, 10)
     console.log("🔍 Trying to match student_id:", studentId)
     console.log("   Converted to number:", studentIdNum)
     
-    // First, try to find in the current class
     let student = classStudents.find((s) => {
       const matchByFaceId = s.faceId === studentId
       const matchByFaceIdString = s.faceId === String(studentIdNum)
@@ -348,12 +347,10 @@ export default function TeacherTimetablePage() {
       console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
       await recordAttendance(activeSession.id, student.id, "face", confidence)
     } else {
-      // Student not in class - try to fetch from database by ID and mark attendance anyway
       console.warn("⚠️ Student NOT in expected class roster")
       console.warn("   This student may be enrolled but assigned to a different class")
       console.warn("   Attempting to mark attendance using database ID:", studentIdNum)
       
-      // Check if already marked using the numeric ID
       if (recognizedStudents.has(studentIdNum)) {
         console.log("⚠️ Student already recognized (duplicate)")
         console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
@@ -363,10 +360,8 @@ export default function TeacherTimetablePage() {
       console.log("📝 Calling recordAttendance with database ID:", studentIdNum)
       console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
       
-      // Try to record attendance anyway - the backend will validate
       await recordAttendance(activeSession.id, studentIdNum, "face", confidence)
       
-      // Show a warning toast
       toast({
         title: "Student Not in Class",
         description: `Student ID ${studentIdNum} detected but not in this class roster`,
@@ -390,7 +385,6 @@ export default function TeacherTimetablePage() {
       console.log("Type:", type)
       console.log("Confidence:", confidence)
       
-      // Check for duplicates
       if (type === "face" && recognizedStudents.has(studentId)) {
         console.log("⚠️ Duplicate face recognition ignored for student:", studentId)
         console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
@@ -424,14 +418,12 @@ export default function TeacherTimetablePage() {
         console.log("✅ Attendance recorded successfully!")
         console.log("Record:", record)
         
-        // Update local state
         if (type === "face") {
           setRecognizedStudents((prev) => new Set([...prev, studentId]))
         } else {
           setFingerprintVerified((prev) => new Set([...prev, studentId]))
         }
 
-        // Refresh attendance
         await fetchAttendance(sessionId)
 
         const student = classStudents.find((s) => s.id === studentId)
@@ -451,20 +443,17 @@ export default function TeacherTimetablePage() {
     }
   }
 
-  // Listen for fingerprint events (WebSocket or polling)
   useEffect(() => {
     if (!activeSession) return
 
     const checkFingerprint = async () => {
       try {
-        // Poll fingerprint verification endpoint
         const response = await fetch("http://localhost:8000/api/fingerprint/identify", {
           method: "POST",
         })
         const data = await response.json()
 
         if (data.success && data.fingerprintId) {
-          // Find student by fingerprintId
           const student = classStudents.find(
             (s) => s.fingerprintId === data.fingerprintId
           )
@@ -482,7 +471,6 @@ export default function TeacherTimetablePage() {
     return () => clearInterval(fpInterval)
   }, [activeSession, classStudents, fingerprintVerified])
 
-  // Cleanup on unmount
   useEffect(() => {
     return () => {
       if (timerRef.current) clearInterval(timerRef.current)
@@ -506,6 +494,19 @@ export default function TeacherTimetablePage() {
         return <Badge className="bg-gray-500 text-white">Closed</Badge>
       default:
         return <Badge>{status}</Badge>
+    }
+  }
+
+  // Handler for video attendance button
+  const openVideoAttendance = (session: Session) => {
+    setSelectedSessionForVideo(session)
+    setVideoDialogOpen(true)
+  }
+
+  const handleVideoAttendanceComplete = () => {
+    fetchSessions()
+    if (activeSession && selectedSessionForVideo?.id === activeSession.id) {
+      fetchAttendance(activeSession.id)
     }
   }
 
@@ -679,8 +680,19 @@ export default function TeacherTimetablePage() {
                       </p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-3">
                     {getStatusBadge(session.status)}
+                    {/* Video Attendance Button - Only show for ACTIVE sessions */}
+                    {session.status === "ACTIVE" && (
+                      <Button
+                        onClick={() => openVideoAttendance(session)}
+                        variant="outline"
+                        className="border-purple-500 text-purple-600 hover:bg-purple-50"
+                      >
+                        <Video className="w-4 h-4 mr-2" />
+                        Video Attendance
+                      </Button>
+                    )}
                     {session.status === "SCHEDULED" && (
                       <Button
                         onClick={() => startSession(session)}
@@ -773,6 +785,14 @@ export default function TeacherTimetablePage() {
                 Manual Entry
               </Button>
               <Button
+                onClick={() => openVideoAttendance(activeSession)}
+                variant="outline"
+                className="border-purple-500 text-purple-600 hover:bg-purple-50"
+              >
+                <Video className="w-4 h-4 mr-2" />
+                Video Attendance
+              </Button>
+              <Button
                 onClick={endSession}
                 className="bg-red-600 hover:bg-red-700 text-white"
               >
@@ -781,6 +801,19 @@ export default function TeacherTimetablePage() {
             </div>
           </CardContent>
         </Card>
+      )}
+
+      {/* Video Attendance Dialog */}
+      {selectedSessionForVideo && (
+        <VideoAttendanceDialog
+          open={videoDialogOpen}
+          onOpenChange={setVideoDialogOpen}
+          sessionId={selectedSessionForVideo.id}
+          classId={selectedSessionForVideo.classId}
+          className={`${selectedSessionForVideo.class?.grade}-${selectedSessionForVideo.class?.section}`}
+          subject={selectedSessionForVideo.subject}
+          onAttendanceMarked={handleVideoAttendanceComplete}
+        />
       )}
     </PageContainer>
   )
