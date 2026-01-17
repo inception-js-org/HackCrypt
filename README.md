@@ -14,15 +14,11 @@ A modern, AI-powered biometric attendance and identity verification platform bui
 
 </div>
 
----
-
 ## 📋 Overview
 
 ATTENDIX is a full-stack identity verification platform that leverages computer vision and biometric authentication to streamline attendance tracking in educational environments. The system combines **facial recognition** with **fingerprint verification** to provide a secure, contactless, and efficient way to verify student and faculty presence.
 
 The platform features dedicated dashboards for students, teachers, and administrators—each with role-specific functionality for attendance tracking, session management, analytics, and grievance handling.
-
----
 
 ## ✨ Features
 
@@ -36,8 +32,6 @@ The platform features dedicated dashboards for students, teachers, and administr
 | **Session Management** | Create, schedule, and manage class sessions with attendance tracking |
 | **Embedding Cache** | Local embedding cache for fast similarity search before Pinecone fallback |
 | **Ambiguous Detection Handling** | System to flag and resolve low-confidence or duplicate detections |
-
----
 
 ## 🛠️ Tech Stack
 
@@ -63,8 +57,6 @@ The platform features dedicated dashboards for students, teachers, and administr
 - **Vector Store:** Pinecone
 - **Analytics:** Vercel Analytics
 
----
-
 ## 🏗️ Architecture
 
 ```
@@ -80,13 +72,11 @@ The platform features dedicated dashboards for students, teachers, and administr
 └─────────────────┘     └─────────────────┘     └─────────────────┘
 ```
 
----
-
 ## 🚀 Getting Started
 
 ### Prerequisites
 
-- Node.js v18+ and pnpm
+- Node.js v18+ and npm
 - Python 3.10 (Conda recommended)
 - PostgreSQL database (Neon)
 - Clerk account
@@ -97,7 +87,7 @@ The platform features dedicated dashboards for students, teachers, and administr
 
 1. Navigate to the frontend directory and install dependencies:
    ```bash
-   cd frontend && pnpm install
+   cd frontend && npm install
    ```
 
 2. Configure environment variables in `.env`:
@@ -106,12 +96,12 @@ The platform features dedicated dashboards for students, teachers, and administr
 
 3. Run database migrations:
    ```bash
-   pnpm db:push
+   npm db:push
    ```
 
 4. Run the development server:
    ```bash
-   pnpm dev
+   npm dev
    ```
 
 5. Access at `http://localhost:3000`
@@ -135,12 +125,10 @@ The platform features dedicated dashboards for students, teachers, and administr
 
 4. Start the API server:
    ```bash
-   uvicorn app.main:app --reload
+   python -m uvicorn app.main:app --reload
    ```
 
 5. API available at `http://127.0.0.1:8000`
-
----
 
 ## 📂 Project Structure
 
@@ -169,8 +157,6 @@ HackCrypt/
 └── public/                   # Static assets
 ```
 
----
-
 ## 🔐 Authentication Flow
 
 1. **Landing** → User selects role (Student/Faculty/Admin)
@@ -178,16 +164,12 @@ HackCrypt/
 3. **Role Sync** → User profile synced to PostgreSQL via Drizzle
 4. **Dashboard** → Redirected to role-specific portal
 
----
-
 ## 📄 License
 
 This project is developed for educational and demonstration purposes.
 
----
-
 <div align="center">
 
-**Built with ❤️ by the HackCrypt Team**
+**Built with ❤️ by Inception.js**
 
 </div>
