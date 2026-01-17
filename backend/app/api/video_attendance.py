@@ -13,6 +13,8 @@ import os
 import time
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
+import psycopg2
+from psycopg2.extras import RealDictCursor
 
 from app.services.face_embedding import FaceEmbedder
 from app.core.pinecone_client import index
@@ -25,6 +27,9 @@ FRAME_SKIP = 5
 MATCH_THRESHOLD = 0.55
 MAX_WORKERS = 5
 MIN_FACE_CONFIDENCE = 0.6
+
+# Database connection string (from your .env)
+DATABASE_URL = "postgresql://neondb_owner:npg_caWN5sQK3MeU@ep-hidden-mode-ah86jidk-pooler.c-3.us-east-1.aws.neon.tech/neondb?sslmode=require"
 
 # Thread pool for Pinecone queries
 executor = ThreadPoolExecutor(max_workers=MAX_WORKERS)
@@ -67,6 +72,48 @@ def query_face(embedding_list):
         return {"matches": [], "source": "error"}
 
 
+def get_student_names(student_ids: list) -> dict:
+    """
+    Fetch student names from database given a list of student IDs.
+    Returns a dictionary mapping student_id -> {first_name, last_name}
+    """
+    if not student_ids:
+        return {}
+    
+    try:
+        conn = psycopg2.connect(DATABASE_URL)
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        
+        # Query to get student names
+        cursor.execute(
+            """
+            SELECT id, first_name, last_name 
+            FROM students 
+            WHERE id = ANY(%s)
+            """,
+            (student_ids,)
+        )
+        
+        results = cursor.fetchall()
+        cursor.close()
+        conn.close()
+        
+        # Convert to dictionary for easy lookup
+        name_map = {}
+        for row in results:
+            name_map[str(row['id'])] = {
+                'first_name': row['first_name'] or '',
+                'last_name': row['last_name'] or ''
+            }
+        
+        print(f"[INFO] Fetched names for {len(name_map)} students")
+        return name_map
+        
+    except Exception as e:
+        print(f"[ERROR] Failed to fetch student names: {e}")
+        return {}
+
+
 @router.post("/analyze")
 async def analyze_video_attendance(
     video: UploadFile = File(...),
@@ -82,7 +129,7 @@ async def analyze_video_attendance(
         class_id: Class ID to filter students
         
     Returns:
-        List of detected students with confidence scores
+        List of detected students with confidence scores and names
     """
     embedder = get_embedder()
     
@@ -191,6 +238,20 @@ async def analyze_video_attendance(
         
         # Sort by confidence
         detected_students.sort(key=lambda x: x["average_confidence"], reverse=True)
+        
+        # Fetch student names from database
+        student_ids = [int(s["student_id"]) for s in detected_students]
+        name_map = get_student_names(student_ids)
+        
+        # Add names to detected students
+        for student in detected_students:
+            student_info = name_map.get(student["student_id"], {})
+            student["first_name"] = student_info.get("first_name", "")
+            student["last_name"] = student_info.get("last_name", "")
+        
+        print(f"[INFO] Detected {len(detected_students)} unique students")
+        for s in detected_students:
+            print(f"  • ID: {s['student_id']} - {s['first_name']} {s['last_name']} (Conf: {s['average_confidence']:.2f})")
         
         return {
             "success": True,

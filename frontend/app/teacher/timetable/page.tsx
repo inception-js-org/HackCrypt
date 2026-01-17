@@ -102,6 +102,19 @@ export default function TeacherTimetablePage() {
     endTime: "",
   })
 
+  // Add fingerprint match tracking state
+  const [fingerprintMatches, setFingerprintMatches] = useState<Array<{
+    fingerprintId: number
+    studentId: number
+    studentName: string
+    confidence: number
+    timestamp: Date
+  }>>([])
+  const [recentFingerprintMatch, setRecentFingerprintMatch] = useState<{
+    studentName: string
+    timestamp: Date
+  } | null>(null)
+
   // Fetch sessions
   useEffect(() => {
     fetchSessions()
@@ -273,6 +286,17 @@ export default function TeacherTimetablePage() {
     if (!activeSession) return
 
     try {
+      // Send FP_STOP command to Arduino
+      console.log("🛑 Sending FP_STOP command to Arduino...")
+      try {
+        await fetch("http://localhost:8000/api/fingerprint/stop", {
+          method: "POST",
+        })
+        console.log("✅ FP_STOP command sent")
+      } catch (fpError) {
+        console.warn("⚠️ Could not send FP_STOP (Arduino may be disconnected):", fpError)
+      }
+
       if (timerRef.current) clearInterval(timerRef.current)
 
       const response = await fetch(`/api/sessions/${activeSession.id}`, {
@@ -288,6 +312,8 @@ export default function TeacherTimetablePage() {
         setAttendanceRecords([])
         setRecognizedStudents(new Set())
         setFingerprintVerified(new Set())
+        setFingerprintMatches([])
+        setRecentFingerprintMatch(null)
         setShowCamera(false)
         fetchSessions()
       }
@@ -448,30 +474,99 @@ export default function TeacherTimetablePage() {
   useEffect(() => {
     if (!activeSession) return
 
+    console.log("🔄 Starting fingerprint polling for session:", activeSession.id)
+    console.log("📋 Available students in class:", classStudents.length)
+    
     const checkFingerprint = async () => {
       try {
         const response = await fetch("http://localhost:8000/api/fingerprint/identify", {
           method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sessionId: activeSession.id }),
         })
+        
         const data = await response.json()
 
+        console.log("👆 Fingerprint API response:", data)
+
         if (data.success && data.fingerprintId) {
-          const student = classStudents.find(
-            (s) => s.fingerprintId === data.fingerprintId
+          console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+          console.log("👆 FINGERPRINT MATCH DETECTED")
+          console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+          console.log("🔍 Searching for student with fingerprintId:", data.fingerprintId)
+          console.log("   Type:", typeof data.fingerprintId)
+          console.log("")
+          console.log("📋 Available students:")
+          classStudents.forEach(s => {
+            console.log(`  • ${s.firstName} ${s.lastName}`)
+            console.log(`    fingerprintId: ${s.fingerprintId} (type: ${typeof s.fingerprintId})`)
+            console.log(`    Match: ${s.fingerprintId === data.fingerprintId || String(s.fingerprintId) === String(data.fingerprintId)}`)
+          })
+          
+          // Try to find student by fingerprintId (handle both string and number)
+          const student = classStudents.find((s) => 
+            s.fingerprintId === data.fingerprintId || 
+            String(s.fingerprintId) === String(data.fingerprintId) ||
+            s.fingerprintId === String(data.fingerprintId) ||
+            Number(s.fingerprintId) === Number(data.fingerprintId)
           )
           
-          if (student && !fingerprintVerified.has(student.id)) {
-            await recordAttendance(activeSession.id, student.id, "fingerprint")
+          console.log("")
+          if (student) {
+            console.log("✅ STUDENT FOUND:", student.firstName, student.lastName)
+            console.log("   Student DB ID:", student.id)
+            console.log("   Already verified?", fingerprintVerified.has(student.id))
+            
+            if (!fingerprintVerified.has(student.id)) {
+              console.log("📝 Recording new fingerprint attendance...")
+              
+              // Add to fingerprint matches list
+              const newMatch = {
+                fingerprintId: Number(data.fingerprintId),
+                studentId: student.id,
+                studentName: `${student.firstName} ${student.lastName}`,
+                confidence: data.confidence || 0,
+                timestamp: new Date(),
+              }
+              
+              setFingerprintMatches(prev => [...prev, newMatch])
+              setRecentFingerprintMatch({
+                studentName: newMatch.studentName,
+                timestamp: newMatch.timestamp,
+              })
+              
+              // Clear the flash after 3 seconds
+              setTimeout(() => {
+                setRecentFingerprintMatch(null)
+              }, 3000)
+              
+              await recordAttendance(activeSession.id, student.id, "fingerprint", data.confidence)
+            } else {
+              console.log("⚠️ Student already verified - skipping duplicate")
+            }
+          } else {
+            console.warn("❌ NO STUDENT FOUND with fingerprintId:", data.fingerprintId)
+            console.warn("   This fingerprint is not registered to any student in this class")
+            
+            toast({
+              title: "Unknown Fingerprint",
+              description: `Fingerprint ID ${data.fingerprintId} not registered in this class`,
+              variant: "destructive",
+            })
           }
+          console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
         }
       } catch (error) {
-        // Fingerprint reader might not be connected
+        console.error("❌ Fingerprint check error:", error)
       }
     }
 
-    const fpInterval = setInterval(checkFingerprint, 3000)
-    return () => clearInterval(fpInterval)
-  }, [activeSession, classStudents, fingerprintVerified])
+    const fpInterval = setInterval(checkFingerprint, 2000) // Check every 2 seconds
+    return () => {
+      console.log("🛑 Stopping fingerprint polling")
+      clearInterval(fpInterval)
+    }
+  }, [activeSession, classStudents, fingerprintVerified, toast])
 
   useEffect(() => {
     return () => {
@@ -744,37 +839,101 @@ export default function TeacherTimetablePage() {
               {/* Fingerprint Status */}
               <div className="space-y-4">
                 <h3 className="font-semibold text-black">Fingerprint Verification</h3>
-                <div className="bg-[#F8FAFC] rounded-lg p-6 text-center">
+                <div 
+                  className={`rounded-lg p-6 text-center transition-all ${
+                    recentFingerprintMatch 
+                      ? "bg-green-100 border-2 border-green-500" 
+                      : "bg-[#F8FAFC]"
+                  }`}
+                >
                   <div className="w-20 h-20 bg-[#EBF5FF] rounded-full flex items-center justify-center mx-auto mb-4">
-                    <span className="text-4xl">👆</span>
+                    <span className="text-4xl">
+                      {recentFingerprintMatch ? "✓" : "👆"}
+                    </span>
                   </div>
-                  <p className="text-black font-medium">Scanner Ready</p>
-                  <p className="text-[#64748B] text-sm mt-2">
-                    {fingerprintVerified.size} fingerprints verified
-                  </p>
+                  {recentFingerprintMatch ? (
+                    <>
+                      <p className="text-green-700 font-bold text-lg">✓ Match Found!</p>
+                      <p className="text-green-600 font-medium">{recentFingerprintMatch.studentName}</p>
+                      <p className="text-green-500 text-xs mt-1">
+                        {recentFingerprintMatch.timestamp.toLocaleTimeString()}
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-black font-medium">Scanner Ready</p>
+                      <p className="text-[#64748B] text-sm mt-2">
+                        Place finger on scanner
+                      </p>
+                    </>
+                  )}
                 </div>
 
-                {/* Attendance List */}
+                {/* Fingerprint Matches List */}
+                {fingerprintMatches.length > 0 && (
+                  <div className="space-y-2">
+                    <h4 className="font-medium text-black flex items-center justify-between">
+                      <span>👆 Fingerprint Matches ({fingerprintMatches.length})</span>
+                    </h4>
+                    <div className="max-h-48 overflow-y-auto space-y-2 bg-green-50 rounded-lg p-3">
+                      {fingerprintMatches.map((match, idx) => (
+                        <div
+                          key={`${match.fingerprintId}-${idx}`}
+                          className="flex items-center justify-between p-2 bg-white rounded border border-green-200 hover:border-green-400 transition-colors"
+                        >
+                          <div className="flex-1">
+                            <p className="text-sm font-medium text-black">
+                              ID: {match.fingerprintId}
+                            </p>
+                            <p className="text-sm text-green-700 font-semibold">
+                              {match.studentName}
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-xs text-[#64748B]">
+                              {match.timestamp.toLocaleTimeString()}
+                            </p>
+                            <Badge className="bg-green-100 text-green-700 text-xs mt-1">
+                              Conf: {match.confidence}
+                            </Badge>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Recent Attendance List */}
                 <div className="max-h-64 overflow-y-auto space-y-2">
                   <h4 className="font-medium text-black">Recent Attendance</h4>
-                  {attendanceRecords.slice(-5).reverse().map((record) => (
-                    <div
-                      key={record.id}
-                      className="flex items-center justify-between p-2 bg-gray-50 rounded"
-                    >
-                      <span className="text-sm">
-                        {record.student?.firstName} {record.student?.lastName}
-                      </span>
-                      <div className="flex gap-1">
-                        {record.faceRecognizedAt && (
-                          <Badge className="bg-blue-100 text-blue-700 text-xs">📷</Badge>
-                        )}
-                        {record.fingerprintVerifiedAt && (
-                          <Badge className="bg-green-100 text-green-700 text-xs">👆</Badge>
-                        )}
+                  {attendanceRecords.length === 0 ? (
+                    <p className="text-sm text-[#64748B] text-center py-4">
+                      No attendance marked yet
+                    </p>
+                  ) : (
+                    attendanceRecords.slice(-5).reverse().map((record) => (
+                      <div
+                        key={record.id}
+                        className="flex items-center justify-between p-2 bg-gray-50 rounded hover:bg-gray-100 transition-colors"
+                      >
+                        <span className="text-sm">
+                          {record.student?.firstName} {record.student?.lastName}
+                        </span>
+                        <div className="flex gap-1">
+                          {record.faceRecognizedAt && (
+                            <Badge className="bg-blue-100 text-blue-700 text-xs">
+                              📷 Face
+                            </Badge>
+                          )}
+                          {record.fingerprintVerifiedAt && (
+                            <Badge className="bg-green-100 text-green-700 text-xs">
+                              👆 Print
+                            </Badge>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    ))
+                  )}
                 </div>
               </div>
             </div>
