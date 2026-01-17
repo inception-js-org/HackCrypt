@@ -120,6 +120,20 @@ export function VideoAttendanceDialog({
       setVideoInfo(result.video_info)
       setStage("review")
       
+      // After video processing completes:
+      if (result.annotated_video) {
+        // Show download button
+        const downloadUrl = `http://localhost:8000${result.annotated_video.download_url}`;
+        
+        // Option 1: Direct download
+        window.open(downloadUrl, '_blank');
+        
+        // Option 2: Show download button in UI
+        <Button onClick={() => window.open(downloadUrl, '_blank')}>
+          📥 Download Annotated Video
+        </Button>
+      }
+      
     } catch (err) {
       console.error("Video processing error:", err)
       setError(err instanceof Error ? err.message : "Failed to process video")
