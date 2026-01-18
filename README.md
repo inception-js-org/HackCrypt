@@ -13,8 +13,7 @@ A modern, AI-powered biometric attendance and identity verification platform bui
 [![Pinecone](https://img.shields.io/badge/Pinecone-Vector_DB-000000)](https://www.pinecone.io/)
 
 
-![attendix_landing_page](https://github.com/user-attachments/assets/3c327b8d-86f7-431a-a200-e33aeea231be)
-
+![attendix](https://github.com/user-attachments/assets/2cbc5dc0-420d-404f-8785-5f6cdf03a5c5)
 
 </div>
 
