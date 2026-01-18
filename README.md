@@ -12,6 +12,10 @@ A modern, AI-powered biometric attendance and identity verification platform bui
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Neon-4169E1?logo=postgresql)](https://neon.tech/)
 [![Pinecone](https://img.shields.io/badge/Pinecone-Vector_DB-000000)](https://www.pinecone.io/)
 
+
+https://github.com/user-attachments/assets/dcd9f99c-c9da-4e64-bd61-495e574c213b
+
+
 </div>
 
 ## 📋 Overview
